@@ -73,6 +73,25 @@
 .lecture-pager{margin:1rem 0 2.5rem}
 @media(max-width:780px){.top-tools{display:none}#sidebar-close{display:block}.course-sidebar{padding:.8rem}.lecture-toolbar{position:relative;top:auto;overflow:visible;display:grid;grid-template-columns:1fr 1fr}.lecture-toolbar>button{width:100%}.within-search{grid-column:1/-1;width:100%}.within-search input{width:100%}.lecture-topic-tabs{margin-inline:-.25rem}.lecture-topic-label{font-size:.72rem}.lecture-topic-tabs button{max-width:220px}.lecture-frame-shell{border-radius:10px}}
 </style>
+<style>
+.instructor-profile-section{padding-top:clamp(3.5rem,7vw,7rem);padding-bottom:clamp(4.5rem,8vw,8rem)}
+.instructor-profile-card{width:min(760px,100%);margin:auto;padding:clamp(2rem,5vw,4rem);text-align:center;border:1px solid color-mix(in srgb,var(--primary) 18%,var(--border));border-radius:48px;background:radial-gradient(circle at 50% 16%,rgba(54,197,240,.14),transparent 34%),linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--surface-2) 82%,#dbeafe));box-shadow:0 28px 80px rgba(38,78,116,.14);position:relative;overflow:hidden}
+.instructor-profile-card:before,.instructor-profile-card:after{content:"";position:absolute;border-radius:50%;pointer-events:none;filter:blur(1px)}
+.instructor-profile-card:before{width:190px;height:190px;right:-85px;top:-80px;background:rgba(37,99,235,.08)}
+.instructor-profile-card:after{width:150px;height:150px;left:-75px;bottom:-70px;background:rgba(20,184,166,.08)}
+.instructor-avatar-ring{width:min(340px,72vw);aspect-ratio:1;margin:0 auto 2rem;padding:9px;border-radius:50%;background:conic-gradient(from 25deg,#2563eb,#14b8a6,#7dbb42,#e8b20b,#5865d8,#2563eb);box-shadow:0 18px 45px rgba(37,99,235,.18);position:relative;z-index:1}
+.instructor-avatar{width:100%;height:100%;padding:7px;border-radius:50%;background:var(--surface);overflow:hidden}
+.instructor-avatar img{width:100%;height:100%;display:block;border-radius:50%;object-fit:cover;object-position:center 22%}
+.instructor-kicker{display:inline-flex;align-items:center;justify-content:center;margin:0 auto 1.1rem;padding:.62rem 1.35rem;border:1px solid color-mix(in srgb,#2563eb 28%,var(--border));border-radius:999px;background:color-mix(in srgb,var(--surface) 86%,#dbeafe);color:#2563eb;font-size:.78rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;box-shadow:0 8px 24px rgba(37,99,235,.08)}
+.instructor-profile-card h2{margin:.2rem 0 .55rem;font-size:clamp(2rem,5vw,3.35rem);line-height:1.05;letter-spacing:-.045em;color:var(--text)}
+.instructor-qualification{margin:0;color:#2563eb;font-size:clamp(1.12rem,2.4vw,1.55rem);font-weight:850}
+.instructor-summary{max-width:62ch;margin:1.1rem auto 1.8rem;color:var(--muted);line-height:1.7}
+.instructor-role-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;position:relative;z-index:1}
+.instructor-role{min-height:92px;display:grid;place-content:center;padding:1rem;border:1px solid color-mix(in srgb,#2563eb 16%,var(--border));border-radius:18px;background:color-mix(in srgb,var(--surface) 92%,#eef5ff);color:var(--muted)}
+.instructor-role strong,.instructor-role span{display:block}.instructor-role strong{color:var(--text);font-size:1rem}.instructor-role span{margin-top:.2rem;font-size:.9rem;font-weight:650}
+.instructor-contact{margin-top:1.4rem;position:relative;z-index:1}
+@media(max-width:620px){.instructor-profile-card{padding:1.5rem;border-radius:28px}.instructor-avatar-ring{margin-bottom:1.5rem;padding:7px}.instructor-avatar{padding:5px}.instructor-role-grid{grid-template-columns:1fr}.instructor-role{min-height:78px}.instructor-profile-card h2{font-size:clamp(1.85rem,9vw,2.55rem)}}
+</style>
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to course content</a>
@@ -166,7 +185,22 @@
       <div class="chip-row"><span class="chip">Service lifecycle</span><span class="chip">Started services</span></div>
       <button class="text-button open-lecture" data-lecture="16">Open lecture <span aria-hidden="true">→</span></button>
     </article></div></section>
-  <section class="section-shell instructor" id="instructor-section"><div class="instructor-photo reveal"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-instructor-photo alt="Portrait of Muhammad Tahir Mehmood"></div><div class="reveal"><span class="eyebrow">About the instructor</span><h2>Muhammad Tahir Mehmood</h2><p>More than 10 years of teaching experience across school, college, and university settings, with subject expertise in Mobile Application Development, Android Studio, Kotlin, the Android SDK, and Firebase.</p><div class="designation-list"><div class="designation"><strong>Headmaster</strong><span>Government Elementary School 53/2-L, Okara</span></div><div class="designation"><strong>Visiting Faculty</strong><span>University of Okara</span></div><div class="designation"><strong>HOD Computer Science</strong><span>Punjab College Okara, UCP Sub Campus</span></div></div><button class="secondary-button" id="contact-trigger">Contact instructor</button></div></section>
+  <section class="section-shell instructor-profile-section" id="instructor-section">
+    <article class="instructor-profile-card reveal" aria-labelledby="instructor-profile-name">
+      <div class="instructor-avatar-ring"><div class="instructor-avatar"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-instructor-photo alt="Portrait of Muhammad Tahir Mehmood"></div></div>
+      <span class="instructor-kicker">Instructor</span>
+      <h2 id="instructor-profile-name">Muhammad Tahir Mehmood</h2>
+      <p class="instructor-qualification">MPhil Computer Science</p>
+      <p class="instructor-summary">More than 10 years of teaching experience with expertise in Mobile Application Development, Android Studio, Kotlin, the Android SDK, and Firebase.</p>
+      <div class="instructor-role-grid" aria-label="Instructor affiliations">
+        <div class="instructor-role"><strong>Principal</strong><span>Government School</span></div>
+        <div class="instructor-role"><strong>Visiting Lecturer</strong><span>Computer Science</span></div>
+        <div class="instructor-role"><strong>Punjab College</strong><span>Okara</span></div>
+        <div class="instructor-role"><strong>University of</strong><span>Okara</span></div>
+      </div>
+      <div class="instructor-contact"><button class="secondary-button" id="contact-trigger">Contact instructor</button></div>
+    </article>
+  </section>
 </div>
 <div class="view course-workspace" id="course-workspace" hidden><aside class="course-sidebar" id="course-sidebar"><div class="sidebar-head"><strong>Course contents</strong><button class="icon-button" id="sidebar-close" aria-label="Close course menu">×</button></div><div class="sidebar-progress"><strong data-progress-label>0% complete</strong><span>Stored on this device</span></div><div><button class="side-lecture" data-lecture="1"><span>01</span><span>Introduction to Mobile Application Development</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="2"><span>02</span><span>Kotlin Language Fundamentals</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="3"><span>03</span><span>Android Development Environment &amp; First App</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="4"><span>04</span><span>Android Views — XML + Kotlin</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="5"><span>05</span><span>Activities, Intents, GSM &amp; Permissions</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="6"><span>06</span><span>Android Permissions</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="7"><span>07</span><span>Animations, Images &amp; Notifications</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="8"><span>08</span><span>Android Data Storage</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="9"><span>09</span><span>Activity Lifecycle &amp; Splash Screen</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="10"><span>10</span><span>Custom Lists, GPS &amp; Progress</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="11"><span>11</span><span>SQLite in Android</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="12"><span>12</span><span>Firebase in Android</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="13"><span>13</span><span>MySQL, PHP &amp; Android</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="14"><span>14</span><span>Audio Management in Android</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="15"><span>15</span><span>Threads in Android</span><i aria-hidden="true">○</i></button><button class="side-lecture" data-lecture="16"><span>16</span><span>Services &amp; Broadcast Receivers</span><i aria-hidden="true">○</i></button></div><div class="toc-panel"><h3>On this page</h3><div class="toc-list" id="toc-list"><span class="chip">Open a lecture</span></div></div></aside><div class="lecture-stage"><section id="lecture-1" class="lecture-section" data-lecture="1" data-title="Introduction to Mobile Application Development" hidden>
       <header class="lecture-masthead">
