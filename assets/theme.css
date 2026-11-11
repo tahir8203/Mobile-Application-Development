@@ -1,0 +1,44 @@
+/* Design system refresh: deep navy, electric blue, cyan. Loaded after the original styles. */
+:root{--primary:#2563eb;--primary-2:#3b82f6;--secondary:#06b6d4;--accent:#22d3ee;--success:#10b981;--warning:#f59e0b;--error:#ef4444;--bg:#f4f7fc;--surface:#ffffff;--surface-2:#edf2fa;--text:#0b1324;--muted:#53607a;--border:#d9e1ee;--code:#0a1020;--glass:rgba(255,255,255,.8);--shadow:0 18px 50px rgba(15,23,42,.10);--shadow-sm:0 6px 20px rgba(15,23,42,.07);--radius:20px;--grad:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);--font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace}
+[data-theme="dark"]{--bg:#050a16;--surface:#0b1324;--surface-2:#111c33;--text:#e9effc;--muted:#97a5c3;--border:#1d2943;--code:#040814;--glass:rgba(8,14,28,.82);--shadow:0 18px 50px rgba(0,0,0,.45);--shadow-sm:0 6px 20px rgba(0,0,0,.3)}
+body{font-family:var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+[data-theme="dark"] body{background:radial-gradient(1200px 600px at 85% -10%,rgba(37,99,235,.16),transparent 60%),radial-gradient(900px 500px at -10% 20%,rgba(6,182,212,.10),transparent 60%),var(--bg);background-attachment:fixed}
+code,pre,kbd{font-family:var(--mono)}
+.loading-screen{background:#050a16!important}
+.topbar{background:var(--glass);backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);border-bottom:1px solid var(--border)}
+.primary-button{background:var(--grad)!important;border:0!important;color:#fff!important;box-shadow:0 10px 30px rgba(37,99,235,.35)}
+.primary-button:hover{filter:brightness(1.08)}
+.hero h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lecture-card,.stat-card,.quiz-card,.tool-card,.glossary-item{border-radius:var(--radius)}
+.lecture-card{transition:transform .2s,border-color .2s,box-shadow .2s}
+.lecture-card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--primary) 45%,var(--border));box-shadow:0 16px 40px rgba(37,99,235,.14)}
+.lecture-number{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.progress-track span,[data-progress-fill]{background:var(--grad)!important}
+.lecture-toolbar{box-shadow:var(--shadow-sm)}
+.lecture-toolbar>button[data-action="complete"]{background:var(--text);color:var(--bg)}
+:focus-visible{outline:3px solid #22d3ee;outline-offset:2px}
+
+/* Lecture-card and page integration for Presentation Mode */
+.card-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:auto}
+.present-btn{display:inline-flex;align-items:center;gap:.4rem;border:0;border-radius:999px;padding:.55rem .95rem;font:inherit;font-weight:750;font-size:.86rem;color:#fff;background:var(--grad);cursor:pointer;box-shadow:0 6px 18px rgba(37,99,235,.28)}
+.present-btn:hover{filter:brightness(1.1)}
+.present-btn svg{width:14px;height:14px}
+.slide-meter{display:flex;align-items:center;gap:.5rem;font-size:.75rem;color:var(--muted);margin:.4rem 0 .2rem}
+.slide-meter i{flex:1;height:4px;border-radius:9px;background:var(--surface-2);overflow:hidden;font-style:normal}
+.slide-meter i b{display:block;height:100%;background:var(--grad);width:0}
+.lesson-panel{border:1px solid var(--border);background:var(--surface);border-radius:18px;padding:1rem 1.15rem;margin:0 0 1rem;box-shadow:var(--shadow-sm)}
+.lesson-panel-head{display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.lesson-panel h2{margin:.1rem 0;font-size:1.15rem}
+.lesson-panel .eyebrow{font-size:.72rem}
+.lesson-objectives{margin:.7rem 0 .4rem;padding-left:1.1rem;color:var(--muted);display:grid;gap:.2rem;font-size:.92rem}
+.lesson-map{display:flex;gap:.4rem;overflow-x:auto;padding:.5rem 0 .2rem;scrollbar-width:thin}
+.lesson-map button{flex:0 0 auto;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:999px;padding:.38rem .75rem;font:inherit;font-size:.78rem;cursor:pointer;white-space:nowrap}
+.lesson-map button:hover{border-color:var(--primary)}
+.lesson-map button.seen{border-color:color-mix(in srgb,var(--secondary) 55%,var(--border))}
+.lesson-map button.seen:before{content:"✓ ";color:var(--secondary)}
+.resume-card{margin-top:1.4rem;display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;padding:.8rem 1rem;border:1px solid var(--border);border-radius:16px;background:var(--glass);max-width:560px}
+.resume-card div{flex:1;min-width:180px}
+.resume-card small{display:block;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em}
+.resume-card strong{font-size:.95rem}
+.resume-card .secondary-button{padding:.5rem .85rem}
+@media(max-width:780px){.lesson-panel{padding:.85rem}.resume-card{max-width:none}}
