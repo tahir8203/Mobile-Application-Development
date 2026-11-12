@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MAD Course</string>
+    <string name="press_back_again">Press back again to exit</string>
+    <string name="saved_to_downloads">Saved to Downloads/MAD Course/%1$s</string>
+    <string name="save_failed">Could not save the file</string>
+    <string name="no_app_for_link">No app can open this link</string>
+    <string name="share_code">Share code</string>
+</resources>

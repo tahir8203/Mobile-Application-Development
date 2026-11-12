@@ -36,6 +36,12 @@ The site follows the official outline for **CSCP-4063 Mobile Application Develop
 - **Assessments** (`#assessments`): Assignments 1–4 (Weeks 3, 6, 11, 14), Quizzes 1–4 (Weeks 4, 7, 12, 15) with scoring, the Week 8 revision and Week 9 mid-term mock exam, the Week 16 project guide with rubric and Play Store publishing steps, and the Week 17 final mock exam. Mock exams have model answers. No official marks or weightage are invented.
 - Every lecture deck opens with **Bloom's Taxonomy outcomes** in three domains: Head (cognitive), Heart (affective) and Hand (psychomotor).
 
+## Android app
+
+The `android/` folder contains a native Android app that bundles the whole course and works offline
+(Android 8.0+, no permissions). GitHub Actions builds the APK and tests it on an emulator; see
+[android/README.md](android/README.md).
+
 ## Project structure
 
 ```
@@ -48,6 +54,8 @@ assets/course-data.js   Course outline, weekly calendar, assignments, quizzes, m
 assets/course.js        Outline and Assessments pages
 assets/instructor.webp  Instructor photo
 docs/UPGRADE-BRIEF.md   Refined project brief and acceptance criteria
+android/                Android app (Kotlin) that ships the course offline
+.github/workflows/      APK build and emulator test
 ```
 
 ## Adding or editing slides
