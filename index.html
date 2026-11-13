@@ -2,10 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="A complete offline interactive Mobile Application Development course by Muhammad Tahir Mehmood.">
 <meta name="theme-color" content="#050a16">
 <title>Mobile Application Development — Complete Course</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MAD Course">
 <style>
 :root{--primary:#0f9d58;--primary-2:#24c875;--secondary:#36c5f0;--accent:#ffc857;--success:#22c55e;--warning:#f59e0b;--error:#ef4444;--bg:#f4f7f5;--surface:#fff;--surface-2:#eef4f0;--text:#13231b;--muted:#5d6f65;--border:#d9e4dd;--code:#101b17;--glass:rgba(255,255,255,.78);--shadow:0 18px 55px rgba(24,61,42,.11);--shadow-sm:0 8px 24px rgba(24,61,42,.08);--radius:22px;--header-h:70px}
 [data-theme="dark"]{--bg:#09110e;--surface:#111d18;--surface-2:#172720;--text:#edf8f1;--muted:#9fb2a7;--border:#273a30;--code:#060c09;--glass:rgba(12,25,19,.82);--shadow:0 18px 55px rgba(0,0,0,.32);--shadow-sm:0 8px 24px rgba(0,0,0,.22)}
@@ -95,8 +100,9 @@
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap">
-<link rel="stylesheet" href="assets/theme.css">
-<link rel="stylesheet" href="assets/present.css">
+<link rel="stylesheet" href="assets/theme.css?v=2">
+<link rel="stylesheet" href="assets/present.css?v=2">
+<link rel="stylesheet" href="assets/portal.css?v=2">
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to course content</a>
@@ -529,6 +535,6 @@ const CourseApp={
 };
 CourseApp.init();
 </script>
-<script src="assets/present.js"></script><script src="assets/course-data.js"></script><script src="assets/course.js"></script>
+<script src="assets/portal-data.js?v=2"></script><script src="assets/present.js?v=2"></script><script src="assets/course-data.js?v=2"></script><script src="assets/course.js?v=2"></script><script src="assets/labs.js?v=2"></script><script src="assets/portal.js?v=2"></script>
 </body>
 </html>

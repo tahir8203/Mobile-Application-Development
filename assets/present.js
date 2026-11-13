@@ -23,7 +23,7 @@ window.MAD={deck(n,d){Decks[n]=d;(waiting[n]||[]).forEach(w=>w[0](d));delete wai
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=2';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -32,7 +32,9 @@ function compose(n,d){
  const s=[{kind:'title',title:d.title,text:d.subtitle,notes:d.intro||'Introduce the lecture. Ask students what they already know about this topic.'},
   {kind:'objectives',title:'By the end of this lecture you can…',points:d.objectives,notes:'Read the objectives aloud. Return to this slide at the end and ask students to tick off each one.'}];
  if(d.bloom)s.push({kind:'bloom',title:'Learning outcomes: Head, Heart, Hand',bloom:d.bloom,notes:'Bloom’s Taxonomy in three domains. Head = what students will know (cognitive). Heart = attitudes and values (affective). Hand = what they will be able to do with their hands in Android Studio (psychomotor).'});
- const all=s.concat(d.slides);Store.d.total[n]=all.length;return all;
+ const body=d.slides.slice(),tn=window.MAD_PORTAL&&window.MAD_PORTAL.thenNow&&window.MAD_PORTAL.thenNow[n];
+ if(tn){const at=body.findIndex(x=>x.kind==='summary');body.splice(at<0?body.length:at,0,{kind:'update',title:'In 2026: what changed',points:tn,notes:'The course outline teaches the classic APIs. This slide shows what professional teams use today for the same job. Students should be able to read both styles.'})}
+ const all=s.concat(body);Store.d.total[n]=all.length;return all;
 }
 
 /* ---------- syntax highlighting ---------- */
@@ -417,7 +419,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
   if(!this.slides.length)return;i=clamp(i,0,this.slides.length-1);if(i===this.i&&dir!==0)return;
   if(this.ctl){this.ctl.destroy();this.ctl=null}this.code=null;
   this.i=i;const s=this.slides[i],stage=$('.pz-stage',this.root);
-  const node=this.render(s,i);node.classList.add(dir<0?'enter-prev':'enter-next');stage.innerHTML='';stage.appendChild(node);node.scrollTop=0;
+  const node=this.render(s,i);node.classList.add(dir<0?'enter-prev':'enter-next');stage.innerHTML='';stage.appendChild(node);this.fit(node);node.scrollTop=0;
   $('.pz-progress span',this.root).style.width=((i+1)/this.slides.length*100)+'%';
   $('.pz-count',this.root).textContent=(i+1)+' / '+this.slides.length;
   const seen=Store.obj('seen',this.l);seen[i]=1;Store.d.slide[this.l]=i;Store.d.last={l:this.l,s:i};Store.save();
@@ -428,6 +430,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
   Presenter.send();
   if(this.watching)this.watchStep();
  },
+ fit(node){node.style.zoom='';if(innerWidth<700)return;let z=1;while(node.scrollHeight>node.clientHeight+4&&z>0.72){z=Math.round((z-0.04)*100)/100;node.style.zoom=z}},
  toggleWatch(f){this.watching=f===undefined?!this.watching:!!f;const b=$('[data-pa="watch"]',this.root);if(b)b.setAttribute('aria-pressed',this.watching);this.root.classList.toggle('watching',this.watching);this.wg=(this.wg||0)+1;clearTimeout(this.wt);if(this.watching)this.watchStep()},
  watchStep(){
   const g=this.wg=(this.wg||0)+1;clearTimeout(this.wt);const s=this.slides[this.i];if(!s)return;
@@ -444,7 +447,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
   const kick=t=>'<div class="pz-kicker">'+esc(t)+(s.era?'<i class="'+(s.era==='Legacy'?'legacy':'modern')+'">'+esc(s.era)+'</i>':'')+'</div>';
   const copy=el('div','pz-copy');
   if(k==='title'){n.classList.add('solo','pz-title');n.innerHTML='<div class="pz-num">'+pad(this.l)+'</div><h2>'+md(s.title)+'</h2><p class="pz-text">'+md(s.text||'')+'</p><p class="pz-hint"><kbd>→</kbd> next · <kbd>F</kbd> fullscreen · <kbd>N</kbd> notes · <kbd>O</kbd> overview · <kbd>S</kbd> step animation · <kbd>W</kbd> watch mode</p>';return n}
-  if(k==='objectives'||k==='summary'){n.classList.add('solo');copy.innerHTML=kick(k==='summary'?'Quick revision':'Learning objectives')+'<h2>'+md(s.title)+'</h2><ul class="pz-list">'+(s.points||[]).map((p,j)=>'<li><b>'+(k==='summary'?'✓':j+1)+'</b><span>'+md(p)+'</span></li>').join('')+'</ul>';
+  if(k==='objectives'||k==='summary'||k==='update'){n.classList.add('solo');if(k==='update')n.classList.add('pz-update');copy.innerHTML=kick(k==='summary'?'Quick revision':k==='update'?'Android today':'Learning objectives')+'<h2>'+md(s.title)+'</h2><ul class="pz-list">'+(s.points||[]).map((p,j)=>'<li><b>'+(k==='summary'?'✓':k==='update'?'↗':j+1)+'</b><span>'+md(p)+'</span></li>').join('')+'</ul>';
    if(k==='summary'){const q=this.score();if(q.total)copy.appendChild(el('p','pz-score','Quiz score for this lecture: <b>'+q.right+' / '+q.total+'</b>'));
     const done=typeof CourseApp!=='undefined'&&CourseApp.state.storage.completed[this.l];const b=el('button','pz-check',done?'✓ Lecture completed':'Mark lecture as complete');b.type='button';b.setAttribute('aria-pressed',!!done);
     b.addEventListener('click',()=>{if(typeof CourseApp!=='undefined'&&!CourseApp.state.storage.completed[this.l]){CourseApp.toggleComplete(this.l)}b.textContent='✓ Lecture completed';b.setAttribute('aria-pressed','true')});copy.appendChild(b)}
@@ -564,5 +567,5 @@ function hook(){
  const h=location.hash.slice(1);if(/^present\//.test(h)||h==='presenter')CourseApp.route(true);else if(CourseApp.state.view==='course')lessonPanel(CourseApp.state.currentLecture);
 }
 hook();
-window.MADPresent={open:(l,s)=>{location.hash='present/'+l+'/'+((s||0)+1)},hide:()=>P.hide(),store:Store,loadDeck,compose,md,esc,plain,Viz};
+window.MADPresent={open:(l,s)=>{location.hash='present/'+l+'/'+((s||0)+1)},hide:()=>P.hide(),store:Store,loadDeck,compose,md,esc,plain,Viz,mountViz,codeBlock,isOpen:()=>P.open,close:()=>P.close()};
 })();

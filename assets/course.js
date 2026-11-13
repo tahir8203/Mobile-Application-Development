@@ -74,7 +74,7 @@ function renderAssess(){
 function updateScores(){$$('.cq').forEach(b=>{const id=b.dataset.quiz,qs=id==='mid'?C.mid.mcq:id==='final'?C.final.mcq:(C.quizzes.find(q=>q.id===id)||{}).qs;if(!qs)return;const s=scoreOf(id,qs);$('.cq-score',b).textContent=s.t?'Score: '+s.r+' / '+s.n+(s.t<s.n?' ('+(s.n-s.t)+' unanswered)':''):'Answer every question, then check your score here.'})}
 
 document.addEventListener('click',e=>{
- const o=e.target.closest('.cq-o');if(o){const f=o.closest('.cq-q'),b=o.closest('.cq'),id=b.dataset.quiz,i=+f.dataset.i,j=+o.dataset.j;const qs=id==='mid'?C.mid.mcq:id==='final'?C.final.mcq:C.quizzes.find(q=>q.id===id).qs,q=qs[i];
+ const o=e.target.closest('.cq .cq-o');if(o){const f=o.closest('.cq-q'),b=o.closest('.cq'),id=b.dataset.quiz,i=+f.dataset.i,j=+o.dataset.j;const qs=id==='mid'?C.mid.mcq:id==='final'?C.final.mcq:C.quizzes.find(q=>q.id===id).qs,q=qs[i];
   (S.d.quiz[id]=S.d.quiz[id]||{})[i]=j;S.save();$$('.cq-o',f).forEach((x,k)=>{x.classList.toggle('right',k===q[2]);x.classList.toggle('wrong',k===j&&j!==q[2])});$('.cq-fb',f).innerHTML=(j===q[2]?'✓ Correct. ':'✗ Answer: '+'ABCD'[q[2]]+'. ')+md(q[3]);updateScores();return}
  const r=e.target.closest('[data-reset]');if(r){delete S.d.quiz[r.dataset.reset];S.save();renderAssess();document.getElementById('as-'+r.dataset.reset)?.scrollIntoView({block:'start'});return}
  const j=e.target.closest('[data-jump]');if(j){e.preventDefault();const id='as-'+j.dataset.jump;if(location.hash!=='#assessments')location.hash='assessments';setTimeout(()=>document.getElementById(id)?.scrollIntoView({block:'start'}),150)}

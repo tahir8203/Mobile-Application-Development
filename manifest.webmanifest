@@ -1,0 +1,22 @@
+{
+  "name": "MAD Course: Mobile Application Development",
+  "short_name": "MAD Course",
+  "description": "Mobile Application Development (CSCP-4063): 16 lectures, animated slides, quizzes, labs and the course outline.",
+  "start_url": "./index.html#home",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#050a16",
+  "theme_color": "#050a16",
+  "categories": ["education"],
+  "icons": [
+    {"src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Lectures", "url": "./index.html#learn"},
+    {"name": "Practice", "url": "./index.html#quiz"},
+    {"name": "Labs", "url": "./index.html#labs"}
+  ]
+}
