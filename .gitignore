@@ -1,0 +1,7 @@
+# Never commit signing keys or their passwords
+*.p12
+*.jks
+*.keystore
+KEYSTORE-PASSWORD.txt
+*.apk
+*.aab

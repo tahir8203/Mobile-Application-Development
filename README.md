@@ -4,6 +4,11 @@ A complete interactive course website containing all 16 Mobile Application Devel
 
 Instructor: Muhammad Tahir Mehmood
 
+> **Continuing this project, or new to it?** Start with [docs/START-HERE.md](docs/START-HERE.md). The full project state is in
+> [docs/PROJECT-HANDOFF.md](docs/PROJECT-HANDOFF.md) and the complete build history is in [docs/CHAT-HISTORY.md](docs/CHAT-HISTORY.md).
+>
+> Live site: https://mobile-application-development-five.vercel.app · Android app: https://github.com/tahir8203/Mobile-Application-Development/releases/latest/download/MAD-Course.apk
+
 Open `index.html` directly to use the course locally (works offline). The site is a static site deployed on Vercel; no build step.
 
 ## Presentation Mode (classroom projector)
@@ -75,7 +80,11 @@ manifest.webmanifest    Web app manifest
 sw.js                   Offline cache (service worker)
 assets/icons/           App icons
 assets/instructor.webp  Instructor photo
-docs/UPGRADE-BRIEF.md   Refined project brief and acceptance criteria
+docs/START-HERE.md      How to continue the project (people and new Claude chats)
+docs/PROJECT-HANDOFF.md Full project state, build and publish steps, rules
+docs/CHAT-HISTORY.md    The complete earlier chat that built the project
+docs/MAD-Course-Outline.pdf  Official course outline
+docs/UPGRADE-BRIEF.md   Original brief for the first upgrade
 android/                Android app (Kotlin) that ships the course offline
 .github/workflows/      APK build and emulator test
 ```
