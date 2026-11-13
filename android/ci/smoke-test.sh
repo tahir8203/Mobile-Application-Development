@@ -25,6 +25,10 @@ adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null
 shot 01-home 10; alive "launch"
 
 open outline;       shot 02-outline 4;      alive "outline"
+open learn;         shot 02b-learn 4;       alive "learn"
+open quiz;          shot 02c-practice 4;    alive "practice"
+open labs/lifecycle; shot 02d-lab 4;        alive "lab"
+open me;            shot 02e-profile 4;     alive "profile"
 open assessments;   shot 03-assessments 4;  alive "assessments"
 open lecture-1;     shot 04-lecture-1 6;    alive "lecture 1"
 open present/4/3;   shot 05-present-l4-s3 6; alive "presentation"

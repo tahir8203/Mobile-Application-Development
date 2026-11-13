@@ -13,11 +13,14 @@ import android.print.PrintAttributes
 import android.print.PrintManager
 import android.provider.MediaStore
 import android.util.Log
+import android.graphics.Color
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.WindowManager
 import android.webkit.ConsoleMessage
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -27,6 +30,7 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -62,6 +66,13 @@ class MainActivity : ComponentActivity() {
     private var printWebView: WebView? = null
     private var pageReady = false
     private var lastBackPress = 0L
+    private var fileCallback: ValueCallback<Array<Uri>>? = null
+
+    /** File picker for "Restore from backup" on the Profile page. */
+    private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        fileCallback?.onReceiveValue(if (uri != null) arrayOf(uri) else null)
+        fileCallback = null
+    }
 
     private val assetLoader by lazy {
         WebViewAssetLoader.Builder()
@@ -116,7 +127,6 @@ class MainActivity : ComponentActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             allowFileAccess = false
-            allowContentAccess = false
             setSupportMultipleWindows(false)
             setSupportZoom(false)
             userAgentString = "$userAgentString MADCourseApp/${BuildConfig.VERSION_NAME}"
@@ -210,7 +220,32 @@ class MainActivity : ComponentActivity() {
             "keepAwake" -> keepAwake(msg.optBoolean("on"))
             "open" -> openExternal(Uri.parse(msg.optString("url")))
             "toast" -> toast(msg.optString("text"))
+            "haptic" -> webView.performHapticFeedback(
+                if (msg.optInt("ms", 12) > 25) HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.VIRTUAL_KEY
+            )
+            "share" -> shareText(msg.optString("text"))
+            "theme" -> applyTheme(msg.optBoolean("dark", true))
         }
+    }
+
+    /** The area behind the status and navigation bars follows the course theme (light or dark). */
+    private fun applyTheme(dark: Boolean) {
+        val color = if (dark) getColor(R.color.navy) else Color.parseColor("#F4F7FC")
+        root.setBackgroundColor(color)
+        webView.setBackgroundColor(color)
+        WindowCompat.getInsetsController(window, root).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
+    }
+
+    private fun shareText(text: String) {
+        if (text.isBlank()) return
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text.take(2000))
+        }
+        startActivity(Intent.createChooser(send, getString(R.string.share_course)))
     }
 
     private fun keepAwake(on: Boolean) {
@@ -225,7 +260,14 @@ class MainActivity : ComponentActivity() {
             try {
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, name)
-                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                    put(
+                        MediaStore.Downloads.MIME_TYPE,
+                        when (name.substringAfterLast('.', "").lowercase()) {
+                            "txt" -> "text/plain"
+                            "json" -> "application/json"
+                            else -> "application/octet-stream" // keeps .kt, .xml, .sql names unchanged
+                        }
+                    )
                     put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/MAD Course")
                 }
                 val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
@@ -320,6 +362,22 @@ class MainActivity : ComponentActivity() {
             root.removeView(view)
             WindowCompat.getInsetsController(window, root).show(WindowInsetsCompat.Type.systemBars())
             root.requestApplyInsets()
+        }
+
+        override fun onShowFileChooser(
+            view: WebView,
+            callback: ValueCallback<Array<Uri>>,
+            params: FileChooserParams
+        ): Boolean {
+            fileCallback?.onReceiveValue(null)
+            fileCallback = callback
+            return try {
+                pickFile.launch("*/*")
+                true
+            } catch (e: ActivityNotFoundException) {
+                fileCallback = null
+                false
+            }
         }
 
         override fun onConsoleMessage(message: ConsoleMessage): Boolean {

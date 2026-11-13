@@ -18,6 +18,10 @@ asks for **no permissions**.
 | Outside links | Kotlin Playground and other websites open in the phone's browser. |
 | Deep links | `madcourse://open#outline`, `madcourse://open#present/4/3`, … open a page directly. |
 
+Version 2.0 adds: touch feedback (haptics), a status bar that follows the light or dark theme, the Android
+share sheet, a file picker for "Restore from backup", and home-screen shortcuts (long-press the icon:
+Lectures, Practice, Labs).
+
 Progress, quiz answers and bookmarks are stored on the phone, separately from the website.
 The presenter (second-screen) window is a desktop-browser feature and is hidden in the app.
 
@@ -39,11 +43,24 @@ GitHub Actions (`.github/workflows/android.yml`) builds the APK on every change 
 course content, installs it on an Android 14 emulator, opens the main pages, takes screenshots and
 fails on crashes or JavaScript errors. Download the APK from the run's **MAD-Course-APK** artifact.
 
+### Build on the instructor's PC
+
+```
+bash android/build-local.sh 3
+```
+
+The argument is the version code; raise it by one for every release. The script uses the tools in
+`D:\MADBuildTools`, signs with the release key and writes
+`D:\Fall 2026\Mobile App Development\APK\MAD-Course.apk`.
+
 ### Signing
 
-Without a key the release APK is signed with the build machine's debug key, which is enough to
-install it. To publish updates (or upload to Google Play) use one permanent key by setting the
-environment variables `MAD_KEYSTORE_FILE`, `MAD_KEYSTORE_PASSWORD`, `MAD_KEY_ALIAS` and
-`MAD_KEY_PASSWORD` when building.
+Releases are signed with the key `mad-course-release.p12` (alias `mad-course`), kept outside the repository
+in `D:\Fall 2026\Mobile App Development\android-signing` with its password file. Every update must use
+this same key or phones refuse the update. Never commit the key. The build reads it from the environment
+variables `MAD_KEYSTORE_FILE`, `MAD_KEYSTORE_PASSWORD`, `MAD_KEY_ALIAS` and `MAD_KEY_PASSWORD`; without them
+it falls back to the debug key.
+
+Version 1.0 was signed with a debug key, so it must be uninstalled before installing 2.0.
 
 Requires Android 8.0 (API 26) or newer.

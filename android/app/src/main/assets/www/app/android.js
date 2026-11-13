@@ -17,6 +17,13 @@
     return false;
   }
 
+  /* Native helpers used by the portal (assets/portal.js). */
+  window.MADNative = {
+    haptic: function (ms) { send({ type: 'haptic', ms: ms || 12 }); },
+    share: function (text) { send({ type: 'share', text: String(text || '') }); },
+    setTheme: function (dark) { send({ type: 'theme', dark: !!dark }); }
+  };
+
   /* Certificate and page printing → Android print dialog (includes "Save as PDF"). */
   window.print = function () { send({ type: 'print', title: document.title }); };
 

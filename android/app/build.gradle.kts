@@ -34,8 +34,8 @@ android {
         applicationId = "com.mtahir.madcourse"
         minSdk = 26
         targetSdk = 35
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "1.0"
+        versionCode = (System.getenv("MAD_VERSION_CODE") ?: "2").toInt()
+        versionName = "2.0"
     }
 
     signingConfigs {

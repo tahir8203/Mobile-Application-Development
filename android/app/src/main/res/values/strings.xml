@@ -6,4 +6,8 @@
     <string name="save_failed">Could not save the file</string>
     <string name="no_app_for_link">No app can open this link</string>
     <string name="share_code">Share code</string>
+    <string name="share_course">Share with</string>
+    <string name="sc_lectures">Lectures</string>
+    <string name="sc_practice">Practice</string>
+    <string name="sc_labs">Labs</string>
 </resources>
