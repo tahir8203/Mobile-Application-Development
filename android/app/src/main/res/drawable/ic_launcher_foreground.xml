@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Phone body -->
+    <path android:fillColor="#FF2F7BFF"
+        android:pathData="M42,26h24a6,6 0,0 1,6 6v44a6,6 0,0 1,-6 6h-24a6,6 0,0 1,-6 -6v-44a6,6 0,0 1,6 -6z" />
+    <!-- Screen -->
+    <path android:fillColor="#FF050A16"
+        android:pathData="M41,33h26v38h-26z" />
+    <!-- Speaker and home indicator -->
+    <path android:fillColor="#FF050A16" android:pathData="M50,29h8v1.6h-8z" />
+    <path android:fillColor="#FF050A16" android:pathData="M50,75.5h8v2h-8z" />
+    <!-- </> code mark -->
+    <path android:strokeColor="#FF22D3EE" android:strokeWidth="2.6"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M49,45l-5,7l5,7M59,45l5,7l-5,7M56,43l-4,18" />
+</vector>

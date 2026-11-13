@@ -23,13 +23,18 @@ window.MAD={deck(n,d){Decks[n]=d;(waiting[n]||[]).forEach(w=>w[0](d));delete wai
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=2';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
+const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
+function bloomHtml(b){return'<div class="pz-bloom">'+BLOOM.map(([k,ic,t,sub])=>'<section class="bl-'+k+'"><h3><span aria-hidden="true">'+ic+'</span> '+t+'<small>'+sub+'</small></h3><ul>'+(b[k]||[]).map(x=>'<li>'+md(x)+'</li>').join('')+'</ul></section>').join('')+'</div>'}
 function compose(n,d){
  const s=[{kind:'title',title:d.title,text:d.subtitle,notes:d.intro||'Introduce the lecture. Ask students what they already know about this topic.'},
   {kind:'objectives',title:'By the end of this lecture you can…',points:d.objectives,notes:'Read the objectives aloud. Return to this slide at the end and ask students to tick off each one.'}];
- const all=s.concat(d.slides);Store.d.total[n]=all.length;return all;
+ if(d.bloom)s.push({kind:'bloom',title:'Learning outcomes: Head, Heart, Hand',bloom:d.bloom,notes:'Bloom’s Taxonomy in three domains. Head = what students will know (cognitive). Heart = attitudes and values (affective). Hand = what they will be able to do with their hands in Android Studio (psychomotor).'});
+ const body=d.slides.slice(),tn=window.MAD_PORTAL&&window.MAD_PORTAL.thenNow&&window.MAD_PORTAL.thenNow[n];
+ if(tn){const at=body.findIndex(x=>x.kind==='summary');body.splice(at<0?body.length:at,0,{kind:'update',title:'In 2026: what changed',points:tn,notes:'The course outline teaches the classic APIs. This slide shows what professional teams use today for the same job. Students should be able to read both styles.'})}
+ const all=s.concat(body);Store.d.total[n]=all.length;return all;
 }
 
 /* ---------- syntax highlighting ---------- */
@@ -371,6 +376,7 @@ Viz.notify=(c,o)=>{
 
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+ play:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>',
  notes:'<svg viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>',
  full:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
  sun:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></svg>',
@@ -384,6 +390,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    '<button type="button" class="pz-ib" data-pa="overview" title="Slide overview (O)" aria-label="Slide overview" aria-pressed="false">'+ICON.grid+'</button>'+
    '<button type="button" class="pz-ib" data-pa="notes" title="Presenter notes (N)" aria-label="Presenter notes" aria-pressed="false">'+ICON.notes+'</button>'+
    '<button type="button" class="pz-ib wide-only" data-pa="presenter" title="Open presenter window" aria-label="Open presenter window">'+ICON.screen+'</button>'+
+   '<button type="button" class="pz-ib pz-watch" data-pa="watch" title="Watch mode: auto-play like a video (W)" aria-label="Watch mode" aria-pressed="false">'+ICON.play+'<span class="wide-only">Watch</span></button>'+
    '<button type="button" class="pz-ib" data-pa="theme" title="Light / dark slides (L)" aria-label="Toggle slide theme">'+ICON.sun+'</button>'+
    '<button type="button" class="pz-ib" data-pa="full" title="Fullscreen (F)" aria-label="Fullscreen" aria-pressed="false">'+ICON.full+'</button>'+
    '<button type="button" class="pz-ib" data-pa="close" title="Exit presentation" aria-label="Exit presentation">'+ICON.x+'</button></div></header>'+
@@ -391,7 +398,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    '<footer class="pz-nav"><button type="button" class="pz-ib" data-pa="prev" aria-label="Previous slide">← Prev</button><div class="grow pz-dots"></div><button type="button" class="pz-ib pz-next" data-pa="next" aria-label="Next slide">Next →</button></footer>';
   document.body.appendChild(r);this.root=r;
   r.addEventListener('click',e=>{const b=e.target.closest('[data-pa]');if(!b)return;const a=b.dataset.pa;
-   ({prev:()=>this.go(this.i-1,-1),next:()=>this.go(this.i+1,1),overview:()=>this.toggleOverview(),notes:()=>this.toggleNotes(),full:()=>this.toggleFull(),theme:()=>this.toggleTheme(),close:()=>this.close(),presenter:()=>Presenter.openWindow()})[a]()});
+   ({prev:()=>this.go(this.i-1,-1),next:()=>this.go(this.i+1,1),overview:()=>this.toggleOverview(),notes:()=>this.toggleNotes(),full:()=>this.toggleFull(),theme:()=>this.toggleTheme(),watch:()=>this.toggleWatch(),close:()=>this.close(),presenter:()=>Presenter.openWindow()})[a]()});
   // swipe
   let sx=0,sy=0,ok=false;const st=$('.pz-stage',r);
   st.addEventListener('touchstart',e=>{const t=e.touches[0];ok=!e.target.closest('.vz,.pz-code pre,input,button');sx=t.clientX;sy=t.clientY},{passive:true});
@@ -412,7 +419,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
   if(!this.slides.length)return;i=clamp(i,0,this.slides.length-1);if(i===this.i&&dir!==0)return;
   if(this.ctl){this.ctl.destroy();this.ctl=null}this.code=null;
   this.i=i;const s=this.slides[i],stage=$('.pz-stage',this.root);
-  const node=this.render(s,i);node.classList.add(dir<0?'enter-prev':'enter-next');stage.innerHTML='';stage.appendChild(node);node.scrollTop=0;
+  const node=this.render(s,i);node.classList.add(dir<0?'enter-prev':'enter-next');stage.innerHTML='';stage.appendChild(node);this.fit(node);node.scrollTop=0;
   $('.pz-progress span',this.root).style.width=((i+1)/this.slides.length*100)+'%';
   $('.pz-count',this.root).textContent=(i+1)+' / '+this.slides.length;
   const seen=Store.obj('seen',this.l);seen[i]=1;Store.d.slide[this.l]=i;Store.d.last={l:this.l,s:i};Store.save();
@@ -421,17 +428,31 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
   this.fillNotes();if(!$('.pz-overview',this.root).hidden)this.fillOverview();
   const h='#present/'+this.l+'/'+(i+1);if(location.hash!==h)history.replaceState(null,'',h);
   Presenter.send();
+  if(this.watching)this.watchStep();
+ },
+ fit(node){node.style.zoom='';if(innerWidth<700)return;let z=1;while(node.scrollHeight>node.clientHeight+4&&z>0.72){z=Math.round((z-0.04)*100)/100;node.style.zoom=z}},
+ toggleWatch(f){this.watching=f===undefined?!this.watching:!!f;const b=$('[data-pa="watch"]',this.root);if(b)b.setAttribute('aria-pressed',this.watching);this.root.classList.toggle('watching',this.watching);this.wg=(this.wg||0)+1;clearTimeout(this.wt);if(this.watching)this.watchStep()},
+ watchStep(){
+  const g=this.wg=(this.wg||0)+1;clearTimeout(this.wt);const s=this.slides[this.i];if(!s)return;
+  const later=(ms,f)=>{this.wt=setTimeout(()=>{if(g===this.wg&&this.watching&&this.open)f()},ms)};
+  const next=()=>{if(this.i>=this.slides.length-1){this.toggleWatch(false);return}this.go(this.i+1,1)};
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(this.ctl){const c=this.ctl;later(1500,function poll(){if(!c.timer&&c.i<c.w.n()-1){if(reduce)c.step();else c.play()}if(c.i>=c.w.n()-1&&!c.timer)later(3000,next);else later(reduce?2500:700,poll)});return}
+  if(this.code&&s.lines){const self=this;later(3000,function step(){if(self.code.k<s.lines.length-1){self.codeStep(1);later(3800,step)}else later(2500,next)});return}
+  const txt=plain([s.title,s.text,s.q,s.takeaway,s.analogy].concat(s.points||[],s.steps||[],s.o||[]).filter(Boolean).join(' '));
+  later(Math.max(6000,Math.min(16000,3500+txt.length*45)),next);
  },
  render(s,i){
   const k=s.kind||'concept',n=el('article','pz-slide');n.setAttribute('aria-roledescription','slide');n.setAttribute('aria-label',(i+1)+' of '+this.slides.length+': '+plain(s.title||s.q));
   const kick=t=>'<div class="pz-kicker">'+esc(t)+(s.era?'<i class="'+(s.era==='Legacy'?'legacy':'modern')+'">'+esc(s.era)+'</i>':'')+'</div>';
   const copy=el('div','pz-copy');
-  if(k==='title'){n.classList.add('solo','pz-title');n.innerHTML='<div class="pz-num">'+pad(this.l)+'</div><h2>'+md(s.title)+'</h2><p class="pz-text">'+md(s.text||'')+'</p><p class="pz-hint"><kbd>→</kbd> next · <kbd>F</kbd> fullscreen · <kbd>N</kbd> notes · <kbd>O</kbd> overview · <kbd>S</kbd> step animation</p>';return n}
-  if(k==='objectives'||k==='summary'){n.classList.add('solo');copy.innerHTML=kick(k==='summary'?'Quick revision':'Learning objectives')+'<h2>'+md(s.title)+'</h2><ul class="pz-list">'+(s.points||[]).map((p,j)=>'<li><b>'+(k==='summary'?'✓':j+1)+'</b><span>'+md(p)+'</span></li>').join('')+'</ul>';
+  if(k==='title'){n.classList.add('solo','pz-title');n.innerHTML='<div class="pz-num">'+pad(this.l)+'</div><h2>'+md(s.title)+'</h2><p class="pz-text">'+md(s.text||'')+'</p><p class="pz-hint"><kbd>→</kbd> next · <kbd>F</kbd> fullscreen · <kbd>N</kbd> notes · <kbd>O</kbd> overview · <kbd>S</kbd> step animation · <kbd>W</kbd> watch mode</p>';return n}
+  if(k==='objectives'||k==='summary'||k==='update'){n.classList.add('solo');if(k==='update')n.classList.add('pz-update');copy.innerHTML=kick(k==='summary'?'Quick revision':k==='update'?'Android today':'Learning objectives')+'<h2>'+md(s.title)+'</h2><ul class="pz-list">'+(s.points||[]).map((p,j)=>'<li><b>'+(k==='summary'?'✓':k==='update'?'↗':j+1)+'</b><span>'+md(p)+'</span></li>').join('')+'</ul>';
    if(k==='summary'){const q=this.score();if(q.total)copy.appendChild(el('p','pz-score','Quiz score for this lecture: <b>'+q.right+' / '+q.total+'</b>'));
     const done=typeof CourseApp!=='undefined'&&CourseApp.state.storage.completed[this.l];const b=el('button','pz-check',done?'✓ Lecture completed':'Mark lecture as complete');b.type='button';b.setAttribute('aria-pressed',!!done);
     b.addEventListener('click',()=>{if(typeof CourseApp!=='undefined'&&!CourseApp.state.storage.completed[this.l]){CourseApp.toggleComplete(this.l)}b.textContent='✓ Lecture completed';b.setAttribute('aria-pressed','true')});copy.appendChild(b)}
    n.appendChild(copy);return n}
+  if(k==='bloom'){n.classList.add('solo');copy.innerHTML=kick('Bloom’s Taxonomy')+'<h2>'+md(s.title)+'</h2>'+bloomHtml(s.bloom);n.appendChild(copy);return n}
   if(k==='quiz'){n.classList.add('solo');copy.innerHTML=kick(s.tag||'Quick check')+'<h2>'+md(s.q)+'</h2><div class="pz-quiz">'+s.o.map((o,j)=>'<button type="button" class="pz-opt" data-j="'+j+'"><b>'+'ABCD'[j]+'</b><span>'+md(o)+'</span></button>').join('')+'</div><p class="pz-feedback" aria-live="polite"></p>';
    const fb=$('.pz-feedback',copy),opts=$$('.pz-opt',copy),prevAns=Store.obj('quiz',this.l)[i];
    const mark=(j,save)=>{opts.forEach((b,x)=>{b.classList.toggle('right',x===s.a);b.classList.toggle('wrong',x===j&&j!==s.a)});fb.className='pz-feedback '+(j===s.a?'ok':'no');fb.innerHTML=(j===s.a?'Correct! ':'Not quite. The answer is '+'ABCD'[s.a]+'. ')+md(s.e||'');if(save){Store.obj('quiz',this.l)[i]=j===s.a;Store.save();Presenter.send()}};
@@ -471,9 +492,9 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
  toggleOverview(f){const o=$('.pz-overview',this.root);const show=f===undefined?o.hidden:f;o.hidden=!show;if(show){this.fillOverview();const cur=$('.pz-thumb.on',o);cur&&cur.focus()}$('[data-pa="overview"]',this.root).setAttribute('aria-pressed',show)},
  toggleFull(){if(document.fullscreenElement)document.exitFullscreen&&document.exitFullscreen();else{const d=document.documentElement;(d.requestFullscreen||d.webkitRequestFullscreen||function(){}).call(d)}},
  toggleTheme(){Store.d.pt=Store.d.pt==='light'?'dark':'light';Store.save();this.root.dataset.pt=Store.d.pt},
- close(){if(!this.open)return;if(this.ctl){this.ctl.destroy();this.ctl=null}if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen();this.root.hidden=true;this.open=false;document.body.classList.remove('pz-open');this.toggleNotes(false);this.toggleOverview(false);
+ close(){if(!this.open)return;this.toggleWatch(false);if(this.ctl){this.ctl.destroy();this.ctl=null}if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen();this.root.hidden=true;this.open=false;document.body.classList.remove('pz-open');this.toggleNotes(false);this.toggleOverview(false);
   const target='#lecture-'+this.l;if(location.hash!==target)location.hash=target;if(this.lastFocus&&this.lastFocus.focus)try{this.lastFocus.focus({preventScroll:true})}catch(e){}},
- hide(){if(this.open){this.root.hidden=true;this.open=false;document.body.classList.remove('pz-open');if(this.ctl){this.ctl.destroy();this.ctl=null}}},
+ hide(){if(this.open){this.toggleWatch(false);this.root.hidden=true;this.open=false;document.body.classList.remove('pz-open');if(this.ctl){this.ctl.destroy();this.ctl=null}}},
  key(e){
   if(!this.open)return;const t=e.target,typing=t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable);
   if(typing&&e.key!=='Escape')return;if(e.ctrlKey||e.metaKey||e.altKey)return;
@@ -483,7 +504,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
   else if(k==='ArrowRight'||k==='PageDown'||k===' '||k==='Spacebar')this.go(this.i+1,1);
   else if(k==='ArrowLeft'||k==='PageUp')this.go(this.i-1,-1);
   else if(k==='Home')this.go(0,-1);else if(k==='End')this.go(this.slides.length-1,1);
-  else if(lk==='f')this.toggleFull();else if(lk==='n')this.toggleNotes();else if(lk==='o')this.toggleOverview();else if(lk==='l')this.toggleTheme();
+  else if(lk==='f')this.toggleFull();else if(lk==='n')this.toggleNotes();else if(lk==='o')this.toggleOverview();else if(lk==='l')this.toggleTheme();else if(lk==='w')this.toggleWatch();
   else if(lk==='s'){if(this.ctl)this.ctl.step();else if(this.code)this.codeStep(1)}
   else if(lk==='p'){if(this.ctl)this.ctl.play()}else if(lk==='r'){if(this.ctl)this.ctl.reset();else if(this.code)this.codeStep(-99)}
   else if(k==='Escape'){if(!$('.pz-overview',this.root).hidden)this.toggleOverview(false);else if(!$('.pz-notes',this.root).hidden)this.toggleNotes(false);else if(!document.fullscreenElement)this.close()}
@@ -526,7 +547,7 @@ function refresh(){
 async function lessonPanel(n){
  const sec=document.getElementById('lecture-'+n);if(!sec)return;let d;try{d=await loadDeck(n)}catch(e){return}
  const slides=compose(n,d),seen=Store.d.seen[n]||{};let p=$('.lesson-panel',sec);if(!p){p=el('section','lesson-panel');p.setAttribute('aria-label','Lesson map');const shell=$('.lecture-frame-shell',sec);shell.parentNode.insertBefore(p,shell)}
- p.innerHTML='<div class="lesson-panel-head"><div><span class="eyebrow">Lecture '+pad(n)+' · '+slides.length+' concept slides</span><h2>'+esc(d.title)+'</h2></div><div class="card-actions"></div></div><ul class="lesson-objectives">'+d.objectives.map(o=>'<li>'+md(o)+'</li>').join('')+'</ul><div class="lesson-map" role="list">'+slides.map((s,k)=>'<button type="button" role="listitem" class="'+(seen[k]?'seen':'')+'" data-goto="'+k+'">'+(k+1)+'. '+esc(plain(s.title||s.q))+'</button>').join('')+'</div>';
+ p.innerHTML='<div class="lesson-panel-head"><div><span class="eyebrow">Lecture '+pad(n)+' · '+slides.length+' concept slides</span><h2>'+esc(d.title)+'</h2></div><div class="card-actions"></div></div><ul class="lesson-objectives">'+d.objectives.map(o=>'<li>'+md(o)+'</li>').join('')+'</ul>'+(d.bloom?'<details class="lesson-bloom"><summary>Bloom’s outcomes: Head · Heart · Hand</summary>'+bloomHtml(d.bloom)+'</details>':'')+'<div class="lesson-map" role="list">'+slides.map((s,k)=>'<button type="button" role="listitem" class="'+(seen[k]?'seen':'')+'" data-goto="'+k+'">'+(k+1)+'. '+esc(plain(s.title||s.q))+'</button>').join('')+'</div>';
  const acts=$('.card-actions',p);acts.appendChild(presentBtn(n,Store.d.slide[n]?'Resume at slide '+startAt(n):'Present from start'));
  $$('[data-goto]',p).forEach(b=>b.addEventListener('click',()=>{location.hash='present/'+n+'/'+(+b.dataset.goto+1)}));
  refresh();
@@ -546,5 +567,5 @@ function hook(){
  const h=location.hash.slice(1);if(/^present\//.test(h)||h==='presenter')CourseApp.route(true);else if(CourseApp.state.view==='course')lessonPanel(CourseApp.state.currentLecture);
 }
 hook();
-window.MADPresent={open:(l,s)=>{location.hash='present/'+l+'/'+((s||0)+1)},store:Store,loadDeck,Viz};
+window.MADPresent={open:(l,s)=>{location.hash='present/'+l+'/'+((s||0)+1)},hide:()=>P.hide(),store:Store,loadDeck,compose,md,esc,plain,Viz,mountViz,codeBlock,isOpen:()=>P.open,close:()=>P.close()};
 })();

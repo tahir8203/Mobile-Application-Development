@@ -369,3 +369,28 @@ body.pz-open{overflow:hidden}
 @media(max-width:800px){.pc main{grid-template-columns:1fr}}
 .pz-copy,.pz-visual{min-width:0}
 .pz-list span,.pz-text,.pz-take,.pz-analogy,.vz-cap,.pz-explain p,.pz-feedback,.pz-opt span{overflow-wrap:anywhere}
+
+/* ---------- Bloom's taxonomy (Head / Heart / Hand) ---------- */
+.pz-bloom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(.6rem,1.4vw,1.2rem);margin-top:.6em}
+.pz-bloom section{border:1px solid var(--pz-line,rgba(120,150,220,.25));border-radius:16px;padding:clamp(.7rem,1.4vw,1.2rem);background:var(--pz-card,rgba(255,255,255,.04));min-width:0}
+.pz-bloom h3{display:flex;align-items:center;gap:.45em;flex-wrap:wrap;margin:0 0 .5em;font-size:1.05em}
+.pz-bloom h3 small{flex-basis:100%;font-size:.68em;font-weight:600;opacity:.75;letter-spacing:.02em}
+.pz-bloom ul{margin:0;padding-left:1.1em;display:grid;gap:.4em;font-size:.88em;line-height:1.4}
+.pz-bloom .bl-head{border-top:4px solid #3b82f6}.pz-bloom .bl-heart{border-top:4px solid #ec4899}.pz-bloom .bl-hand{border-top:4px solid #06b6d4}
+.lesson-bloom{margin:.4rem 0 1rem;border:1px solid var(--line,rgba(120,150,220,.25));border-radius:14px;padding:.6rem .9rem}
+.lesson-bloom summary{cursor:pointer;font-weight:700}
+.lesson-bloom .pz-bloom{font-size:.92rem}
+@media (max-width:900px),(max-aspect-ratio:1/1){.pz-bloom{grid-template-columns:1fr}}
+/* watch mode */
+.pz-watch{display:inline-flex!important;align-items:center;gap:.35em;width:auto!important;padding-inline:.6em;white-space:nowrap}
+.pz-watch[aria-pressed="true"]{background:#2563eb;color:#fff;border-color:#2563eb}
+.pz.watching .pz-progress span{background:linear-gradient(90deg,#ec4899,#06b6d4)}
+@media (max-width:520px){.pz-watch span{display:none}}
+
+/* v2: staggered entrance for list points, and the "In 2026" slide */
+@keyframes pzRise{from{opacity:0;transform:translateY(.6em)}to{opacity:1;transform:none}}
+.pz-slide .pz-list li{animation:pzRise .45s cubic-bezier(.2,.7,.2,1) both}
+.pz-slide .pz-list li:nth-child(2){animation-delay:.07s}.pz-slide .pz-list li:nth-child(3){animation-delay:.14s}.pz-slide .pz-list li:nth-child(4){animation-delay:.21s}.pz-slide .pz-list li:nth-child(5){animation-delay:.28s}.pz-slide .pz-list li:nth-child(6){animation-delay:.35s}.pz-slide .pz-list li:nth-child(n+7){animation-delay:.42s}
+.pz-update .pz-list li b{background:linear-gradient(135deg,#a78bfa,#22d3ee)}
+.pz-update .pz-kicker{color:var(--violet)}
+@media (prefers-reduced-motion:reduce){.pz-slide .pz-list li{animation:none}}

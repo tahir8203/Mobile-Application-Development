@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="lectures"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_lectures"
+        android:shortcutShortLabel="@string/sc_lectures">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="madcourse://open#learn"
+            android:targetPackage="com.mtahir.madcourse"
+            android:targetClass="com.mtahir.madcourse.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="practice"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_practice"
+        android:shortcutShortLabel="@string/sc_practice">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="madcourse://open#quiz"
+            android:targetPackage="com.mtahir.madcourse"
+            android:targetClass="com.mtahir.madcourse.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="labs"
+        android:enabled="true"
+        android:icon="@drawable/ic_sc_labs"
+        android:shortcutShortLabel="@string/sc_labs">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="madcourse://open#labs"
+            android:targetPackage="com.mtahir.madcourse"
+            android:targetClass="com.mtahir.madcourse.MainActivity" />
+    </shortcut>
+</shortcuts>

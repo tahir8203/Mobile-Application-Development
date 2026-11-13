@@ -1,0 +1,4 @@
+/* Android app only. The second-screen presenter window needs a desktop browser. */
+.android-app [data-pa="presenter"] { display: none !important; }
+/* No text-selection callout flashes when tapping slide controls. */
+.android-app .pz button { -webkit-tap-highlight-color: transparent; }
