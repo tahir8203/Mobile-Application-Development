@@ -544,3 +544,16 @@ body.pz-open{overflow:hidden}
 .vac-list button:hover,.vac-list button:focus-visible{background:#e0f2fe}
 .vac-out{margin-top:.5em;color:#047857;font-weight:700}
 @media (max-width:760px){.val-grid{grid-template-columns:minmax(0,1fr)}.val-code{max-height:12em}}
+
+/* back stack */
+.vbs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;align-items:center}
+.vbs-stack{display:flex;flex-direction:column;gap:.35rem;min-height:12em;justify-content:flex-end;border:2px dashed var(--line);border-top:0;border-radius:0 0 14px 14px;padding:.5rem}
+.vbs-card{display:flex;justify-content:space-between;align-items:center;gap:.4rem;padding:.55rem .7rem;border-radius:10px;background:var(--panel-2);border:2px solid var(--line);opacity:.65}
+.vbs-card.top{opacity:1;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.2)}
+.vbs-card.in{animation:vbsIn .4s ease both}
+.vbs-card small{color:var(--mu);font-size:.75em}
+.vbs-empty{color:var(--mu);text-align:center;padding:1rem}
+@keyframes vbsIn{from{transform:translateY(-24px);opacity:0}}
+@media (max-width:760px){.vbs{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){.vbs-card.in{animation:none}}
+.pz h2,.pz-text,.pz-opt span,.pz-list span,.vtl-card,.vns-row code{overflow-wrap:anywhere}

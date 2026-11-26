@@ -39,8 +39,84 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=7` everywhere, and the service worker cache is now `mad-v7`.
+- **Cache:** `?v=8` everywhere, and the service worker cache is now `mad-v8`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
+
+## Lecture 5: Activities, Intents, GSM & Permissions
+
+**Slides: 22 → 31.** That is 27 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 5.docx".
+
+**Your decision:** keep Lectures 5 and 6 separate. Lecture 5 only **previews** runtime permissions (the SmsManager slides and one "first look" animation that points to Lecture 6).
+
+### What changed
+
+- **Every screen uses ViewBinding** (ActivityMainBinding, ActivitySecondBinding). The old deck used findViewById and undeclared variables.
+- **New slides following your notes:**
+  - creating a second Activity with the wizard
+  - SecondActivity's layout + Kotlin
+  - **every screen in the manifest**
+  - sending data
+  - receiving data with a default (`?: "Guest"`)
+  - keys kept in a `companion object`
+  - a **back stack animation** (new `backstack` widget: push, push, push, then pop back to the home screen)
+  - what "GSM services" means
+  - dial vs call
+  - **SMS through the SMS app**
+  - SmsManager and why it is limited
+  - SmsManager code
+  - email
+  - more everyday intents (web, map, share)
+  - two mistake slides (no app found; keys that do not match)
+- **Kept and improved:** the explicit and implicit Intent animations, the result-back comparison, and the permission animation (now with SEND_SMS).
+- **50 defined terms.** Examples: explicit/implicit Intent, `::class.java`, extra, key, back stack, Activity Result API, Uri, ACTION_DIAL / CALL / SENDTO / VIEW, GSM, SmsManager, dangerous permission, Google Play policy, `Build.VERSION.SDK_INT`, deprecated, ActivityNotFoundException, package visibility, PendingIntent. 35 were added to the portal glossary, which now has 270 terms.
+- **Engine:**
+  - new `backstack` widget
+  - headings and quiz answers now wrap inside long code words, so nothing scrolls sideways at 360px
+  - cache is now `?v=8` / `mad-v8`
+- **Course Outline:** all 9 Lecture 5 topics land on the matching slides.
+
+### Verification
+
+All Kotlin was compiled with Kotlin 2.2.21 against stand-in Android classes, with simulated taps.
+
+- **Two-screen app:**
+  - "Ali" travels with key USERNAME → "Welcome Ali"
+  - opened with no extra → "Welcome Guest"
+- **SmsManager flow:**
+  - deny → "SMS permission denied"
+  - allow → the SMS is sent at once
+  - the version check works on API 36 and API 24
+- **Intents:**
+  - `smsto:`, `mailto:`, web, `geo:`, share chooser, dial and call each build the right Intent
+  - the empty-email check shows its Toast
+  - a missing app shows "No SMS / email app found" instead of crashing
+  - the Activity Result API returns the city "Okara"
+- **XML:** the manifest and activity_second.xml are well-formed.
+- **Facts checked on official pages (26 Nov 2026):**
+  - `SmsManager.getDefault()` was deprecated in API 31; use `getSystemService(SmsManager.class)` (developer.android.com/reference/android/telephony/SmsManager).
+  - Google Play allows SMS and call-log permissions only for default SMS, Phone or Assistant handlers, with rare temporary exceptions (support.google.com/googleplay/android-developer/answer/10208820).
+  - The common-intents guide uses `mailto:`, `smsto:` and ACTION_DIAL (developer.android.com/guide/components/intents-common).
+- **Browser tests:**
+  - All 31 slides open with no errors, and every animation steps to the end.
+  - No slide scrolls sideways at 360px.
+
+### Corrections to your notes
+
+1. **The title says "Lecture 4"**; in the portal this is Lecture 5 (Lecture 4 is Views).
+2. **SecondActivity was never added to the manifest** in the notes. Without it the app crashes when opening the screen. There is a slide on this.
+3. **`"Welcome $name"` with a nullable name** shows "Welcome null" when the extra is missing. It now uses `?: "Guest"`.
+4. **SmsManager:**
+   - The explanation says `SmsManager.getDefault()` but the code uses `getSystemService(SmsManager::class.java)`, which exists only on API 31+. With minSdk 24 a version check is needed.
+   - The variable is `smsPermissionCode` in the code but `SMS_PERMISSION_CODE` in the explanation.
+   - After the user taps Allow, the notes' code did not send the SMS; the user had to tap again.
+   - `requestPermissions` + `onRequestPermissionsResult` is the older pattern; the slide uses the Activity Result API, and Lecture 6 compares both.
+5. **"Google Play may reject it"** → more exact: Play allows SMS permissions only for the default SMS / Phone / Assistant app.
+6. **The SMS alternative** used ACTION_VIEW with `sms:`. Google's guide uses ACTION_SENDTO with `smsto:`. Both usually work; the slide follows the guide.
+7. **Email:**
+   - `type = "message/rfc822"` with ACTION_SEND also offers non-email apps; ACTION_SENDTO with `mailto:` limits it to email apps.
+   - The notes' Kotlin file repeats `package com.example.first` twice, which is a compile error.
+8. **ACTION_CALL** needs CALL_PHONE requested **at run time** too, not only in the manifest, or it throws a SecurityException. The slide recommends ACTION_DIAL, which needs no permission.
+9. **Manifests** still use `<manifest package=…>` (see Lecture 3).
 
 ## Lecture 4: Android Views — XML + Kotlin
 

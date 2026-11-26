@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=7';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=8';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -546,6 +546,17 @@ Viz.autocomplete=(c,o,ctl)=>{
  return{n:()=>steps.length,note:'',
   draw(i){const s=steps[i];if(s.threshold){th=s.threshold;sel.value=String(th)}inp.value=s.type||'';out.textContent='';const L=show();this._n=L.length},
   cap(i){const s=steps[i],t=s.type||'',L=t.length>=th?match(t):[];return s.cap+(t?' — typed **"'+t+'"** ('+t.length+' letter'+(t.length===1?'':'s')+', threshold '+th+'): '+(L.length?L.length+' suggestion'+(L.length>1?'s':''):'**no suggestions**'):'')}};
+};
+
+/* Activity back stack: each step pushes (startActivity) or pops (Back / finish) a screen */
+Viz.backstack=(c,o)=>{
+ const S=[[]];o.ops.forEach(op=>{const cur=S[S.length-1].slice();if(op[0]==='push')cur.push(op[1]);else cur.pop();S.push(cur)});
+ const w=el('div','vbs');const st=el('div','vbs-stack');st.setAttribute('aria-label','Back stack, top first');const scr=el('div','vbs-screen');w.appendChild(st);w.appendChild(scr);c.appendChild(w);
+ return{n:()=>S.length,note:'',
+  draw(i){const cur=S[i],prev=S[i-1]||[];const pushed=i>0&&o.ops[i-1][0]==='push';
+   st.innerHTML=cur.length?cur.slice().reverse().map((a,k)=>'<div class="vbs-card'+(k===0?' top':'')+(k===0&&pushed?' in':'')+'"><b>'+esc(a)+'</b>'+(k===0?'<small>visible</small>':'<small>waiting below</small>')+'</div>').join(''):'<div class="vbs-empty">Stack empty → home screen</div>';
+   scr.innerHTML=phone(cur.length?cur[cur.length-1]:'Home screen',cur.length?'<div class="w-text">'+esc((o.texts||{})[cur[cur.length-1]]||'')+'</div>':'<div class="w-text" style="color:#64748b">📱 Your app is closed</div>')},
+  cap(i){if(!i)return o.intro||'The app is not running yet.';const op=o.ops[i-1];return op[0]==='push'?'`startActivity(…)` **pushes** '+op[1]+' on top. The user now sees it.':'**Back** (or `finish()`) **pops** the top screen; the one below becomes visible again.'}};
 };
 
 /* ---------- presentation ---------- */
