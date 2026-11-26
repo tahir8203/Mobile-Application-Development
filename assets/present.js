@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=17';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=18';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -950,6 +950,46 @@ Viz.micrec=(c,o,ctl)=>{
  bStop.addEventListener('click',()=>{stopAll()});
  return{n:()=>1,note:'',draw(){},cap:()=>o.cap||'Press record, speak, stop, then play your clip.',destroy(){stopAll();clips.forEach(u=>URL.revokeObjectURL(u))}};
 };
+/* ANR demo: the same slow job on the main thread (spinner freezes, taps ignored, ANR after 5 s) or on a worker thread (spinner keeps spinning). */
+Viz.anrdemo=(c,o)=>{
+ const w=el('div','van');c.appendChild(w);const S=o.script;
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];const frozen=s.where==='main'&&s.t>0&&s.t<(s.total||6);
+   w.innerHTML='<div class="van-ph">'+phone('Weather app','<div class="van-spin'+(frozen?' frozen':'')+(s.t>=(s.total||6)||!s.t?' idle':'')+'" aria-hidden="true"></div><div class="w-text" style="text-align:center">'+esc(s.screen)+'</div><button type="button" class="w-btn"'+(frozen?' style="opacity:.6"':'')+'>Refresh</button>'+(s.tap?'<div class="w-text van-tap">👆 tap '+(frozen?'ignored':'handled')+'</div>':'')+(s.anr?'<div class="van-anr"><b>Weather app isn’t responding</b><span>Close app</span><span>Wait</span></div>':''))+'</div><div class="van-side"><div class="van-lane"><b>Main (UI) thread</b><div class="vtl2-track">'+(s.main||[]).map(x=>'<span class="vtl2-b '+x[2]+'" style="left:'+x[0]+'%;width:'+x[1]+'%">'+esc(x[3])+'</span>').join('')+'</div></div><div class="van-lane"><b>Worker thread</b><div class="vtl2-track">'+(s.bg||[]).map(x=>'<span class="vtl2-b '+x[2]+'" style="left:'+x[0]+'%;width:'+x[1]+'%">'+esc(x[3])+'</span>').join('')+'</div></div><div class="vz-console">t = '+s.t+' s · '+esc(s.log)+'</div></div>'},
+  cap:i=>S[i].cap};
+};
+/* Thread life cycle: NEW → RUNNABLE → TERMINATED; start() vs run(); start() twice. */
+Viz.threadlife=(c,o,ctl)=>{
+ const w=el('div','vtz');c.appendChild(w);let st;const ST=['NEW','RUNNABLE','TERMINATED'];
+ const reset=()=>{st={s:'NEW',where:'',log:['val t = Thread(task)  → NEW']}};
+ const A={start(){if(st.s!=='NEW'){st.log.push('t.start() again → IllegalThreadStateException');st.err=true;return}st.s='RUNNABLE';st.where='worker';st.log.push('t.start() → a NEW thread runs run()')},
+  finish(){if(st.s==='RUNNABLE'){st.s='TERMINATED';st.log.push('run() ended → TERMINATED')}},
+  run(){st.where='main';st.log.push('t.run() → the code runs on MAIN; t is still '+st.s+' (no new thread)')}};
+ function render(){w.innerHTML='<div class="vms-states">'+ST.map(x=>'<span class="vms-s'+(x===st.s?' on':'')+'">'+x+'</span>').join('')+(st.err?'<span class="vms-s err on">IllegalThreadStateException</span>':'')+'</div><div class="van-lane"><b>Main thread</b><div class="vtl2-track">'+(st.where==='main'?'<span class="vtl2-b bad" style="left:10%;width:60%">task.run() — UI frozen</span>':'<span class="vtl2-b ui" style="left:0;width:100%">drawing, taps…</span>')+'</div></div><div class="van-lane"><b>Worker thread</b><div class="vtl2-track">'+(st.where==='worker'?'<span class="vtl2-b net" style="left:10%;width:'+(st.s==='TERMINATED'?60:40)+'%">task.run()'+(st.s==='TERMINATED'?' ✓':'')+'</span>':'')+'</div></div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="start">t.start()</button><button type="button" class="vz-btn" data-x="finish">work ends</button><button type="button" class="vz-btn" data-x="run">t.run() (wrong)</button></div><div class="vz-console">'+esc(st.log.slice(-4).join('\n'))+'</div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){reset();(S[i].a||[]).forEach(a=>A[a]());render()},cap:i=>S[i].cap};
+};
+/* More workers: 6 equal tasks, 1–4 worker threads; each tick a worker finishes one third of a task. */
+Viz.workers=(c,o,ctl)=>{
+ const N=o.tasks||6,L=o.len||3,w=el('div','vwk');c.appendChild(w);let k=1;
+ function render(t){const total=Math.ceil(N/k)*L,tt=Math.min(t,total);
+  const bars=Array.from({length:N},(_,j)=>{const round=Math.floor(j/k),startT=round*L,p=Math.max(0,Math.min(L,tt-startT))/L;return '<div class="vwk-row"><span>task '+(j+1)+'</span><div class="vwk-bar"><i style="width:'+(p*100)+'%;background:'+(p>=1?'#16a34a':'#22d3ee')+'"></i></div><small>'+(p>=1?'done':p>0?'worker '+(j%k+1):'waiting')+'</small></div>'}).join('');
+  w.innerHTML='<label class="vfo-sl">Worker threads: <b>'+k+'</b><input type="range" min="1" max="4" value="'+k+'" data-k></label>'+bars+'<div class="vz-console">tick '+tt+' of '+total+' · '+N+' tasks ÷ '+k+' worker'+(k>1?'s':'')+' = '+Math.ceil(N/k)+' round'+(Math.ceil(N/k)>1?'s':'')+' × '+L+' ticks = '+total+' ticks</div>';
+  const r=$('[data-k]',w);r.addEventListener('input',()=>{ctl.pause();k=+r.value;render(t)})}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){k=S[i].k;render(S[i].t)},cap:i=>S[i].cap};
+};
+/* Race condition: two threads do count++ (read, add, write) on the same counter. */
+Viz.racelab=(c,o,ctl)=>{
+ const w=el('div','vrc2');c.appendChild(w);let sync=false;
+ const UNSAFE=[['A','read count → 5',5,null],['B','read count → 5',5,null],['A','add 1 → 6',5,null],['B','add 1 → 6',5,null],['A','write 6',6,null],['B','write 6 (A’s +1 is lost!)',6,null]];
+ const SAFE=[['A','lock 🔒',5,'A'],['A','read 5 · add 1 · write 6',6,'A'],['A','unlock 🔓',6,null],['B','lock 🔒',6,'B'],['B','read 6 · add 1 · write 7',7,'B'],['B','unlock 🔓',7,null]];
+ function render(i){const P=sync?SAFE:UNSAFE,s=P[Math.min(i,P.length-1)];const shown=P.slice(0,i+1);
+  w.innerHTML='<div class="vrc2-top"><div class="vrc2-count"><small>shared count</small><b>'+s[2]+'</b><small>expected '+(i>=P.length-1?7:'…')+'</small></div><div class="vpd-acts"><button type="button" class="vz-btn" data-s="0" aria-pressed="'+!sync+'">count++ (no lock)</button><button type="button" class="vz-btn" data-s="1" aria-pressed="'+sync+'">synchronized / Atomic</button></div></div><div class="vrc2-cols"><div><b>Thread A</b>'+shown.filter(x=>x[0]==='A').map(x=>'<span>'+esc(x[1])+'</span>').join('')+'</div><div><b>Thread B</b>'+shown.filter(x=>x[0]==='B').map(x=>'<span>'+esc(x[1])+'</span>').join('')+'</div></div>'+(i>=P.length-1?'<div class="vij-res '+(s[2]===7?'ok':'bad')+'"><b>'+(s[2]===7?'✅ count = 7':'⛔ count = 6 — one increment lost')+'</b><small>'+(s[2]===7?'Only one thread at a time may do read-add-write.':'Both threads read 5 before either wrote: a race condition.')+'</small></div>':'');
+  $$('[data-s]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();sync=b.dataset.s==='1';render(ctl.i||0)}))}
+ return{n:()=>6,note:'logic',draw(i){render(i)},cap:i=>['Two threads both want to add 1 to count (5). count++ is really three steps: read, add, write.','The second thread reads before the first one has written…','Each adds 1 to the value it read.','…','First write: 6.','Second write: also 6 — one increment disappeared. Switch on synchronized/Atomic and replay.'][i]};
+};
 
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -1057,7 +1097,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','focuslab','mpstate','storagelab','roundtrip','rowsjson','threadlab','xampp','jsontree','rtsync','authflow','rulescheck','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','anrdemo','threadlife','focuslab','mpstate','storagelab','roundtrip','rowsjson','threadlab','xampp','jsontree','rtsync','authflow','rulescheck','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');

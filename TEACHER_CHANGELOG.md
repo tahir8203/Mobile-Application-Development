@@ -39,9 +39,78 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=17` everywhere, and the service worker cache is now `mad-v17`.
+- **Cache:** `?v=18` everywhere, and the service worker cache is now `mad-v18`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 15: Threads in Android
+
+**Slides: 33 in total.** That is 29 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 15 _Threads_in_Android.html", in the order of its 5 sections:
+1. Thread
+2. Runnable
+3. Thread vs Runnable
+4. Writing a thread
+5. Multiple threads
+
+Your 6 Test Yourself questions are all included. Your notes deliberately had **no code**; the new deck adds real, runnable code for every idea, then coroutines (today's way).
+
+### What changed
+
+- **Four new live widgets** (your notes had five animations):
+  - **Freeze vs smooth** (`anrdemo`): the same 6-second job on the main thread (spinner freezes, tap ignored, ANR dialog) and on a worker thread (spinner keeps spinning, result handed back). It shows main and worker lanes.
+  - **Thread life cycle** (`threadlife`): NEW → RUNNABLE → TERMINATED, start() vs run() (the work lands on the MAIN lane), and start() twice → IllegalThreadStateException.
+  - **More workers** (`workers`): 6 tasks with a 1–4 worker slider. It shows that 4 workers are no faster than 3 for 6 equal tasks (2 rounds either way).
+  - **Race condition** (`racelab`): two threads doing count++ (read, add, write) lose an update (6 instead of 7); with synchronized/Atomic → 7.
+- **New code slides:**
+  - Thread & Runnable
+  - start() vs run()
+  - back to the UI thread (runOnUiThread)
+  - a thread pool (Executors)
+  - a real race condition (AtomicInteger)
+  - withContext
+  - async
+  - the refresh button with lifecycleScope
+- **New concept slides:**
+  - the two threading rules
+  - concurrency vs parallelism
+  - coroutines and dispatchers
+  - which tool when (coroutines / Thread / Handler / WorkManager / AsyncTask)
+  - two mistake slides
+- **29 defined terms.** Examples: thread, main thread, UI toolkit, ANR, Runnable, start(), run(), IllegalThreadStateException, thread pool, Executor, concurrency, parallelism, race condition, synchronized, AtomicInteger, runOnUiThread, Handler, coroutine, suspend, Dispatchers.IO/Main, withContext, async, lifecycleScope, WorkManager, StrictMode. 20 were added to the portal glossary, which now has 560 terms.
+- **Cache:** `?v=18` / `mad-v18`.
+- **Course Outline:** all 3 Lecture 15 topics land on matching slides. "Running code in multiple threads" now opens "Concurrency and parallelism".
+
+### Verification
+
+- **Everything was RUN for real, not simulated.** The six plain-Kotlin examples were taken straight from the deck, compiled with Kotlin 2.2.21 and run on the JVM with real threads and real kotlinx-coroutines 1.11.0. The outputs on the slides are from those runs:
+  - the sums 500000500000 on "counter" and "worker-1" (the order changes between runs)
+  - work on main / work on worker / IllegalThreadStateException
+  - 8 jobs: 4137 ms with 1 thread vs 1045 ms with 4
+  - race: unsafe 189235, **200000 (correct by luck)** and 173059 over three runs, while AtomicInteger was always 200000
+  - withContext hopping to DefaultDispatcher-worker-1 and back
+  - async: sum 30 in 1098 ms
+- **Android code:** the two Android slides (Thread + runOnUiThread, lifecycleScope + withContext) were compiled and run on a stand-in "main" thread with its own queue. The views were set on that thread and the download ran on another.
+- **Browser:**
+  - no script errors, and all 33 slides have no sideways scrolling at 360 px
+  - the four widgets were tested by script
+  - the workers widget's explanation was corrected to "rounds × ticks"
+  - Lecture 13–14 widgets were re-checked
+- **Facts checked on developer.android.com (26 Nov 2026):**
+  - **ANR page:** "Input dispatching timed out: If your app has not responded to an input event (such as a key press or screen touch) within 5 seconds"; StrictMode catches I/O on the main thread.
+  - **Processes and threads:**
+    - "There are two rules to Android's single-thread model: Don't block the UI thread. Don't access the Android UI toolkit from outside the UI thread."
+    - runOnUiThread / View.post / View.postDelayed
+  - **Kotlin coroutines on Android:** "Coroutines are the recommended solution for asynchronous programming on Android."
+  - **Task scheduling:** WorkManager "lets tasks persist across app restarts and device reboots".
+
+### Corrections and additions to your notes
+
+1. **"If the main thread is blocked for roughly 5 seconds, Android shows the ANR":** more exactly, an ANR happens when the app does not respond to an **input event** (a tap or key) within 5 seconds. A blocked thread with no input does not by itself show the dialog, but the screen is still frozen. The slides use Google's wording.
+2. **"Redraw the UI about 60 times every second":** many phones now refresh 90 or 120 times a second, so the frame budget is even smaller.
+3. **The second threading rule was missing:** your notes cover "don't block the main thread" but not "don't touch views from other threads" (CalledFromWrongThreadException). There is a slide, a mistake slide and runOnUiThread code.
+4. **Thread life-cycle names:** Java's real states are NEW, RUNNABLE, BLOCKED, WAITING, TIMED_WAITING and TERMINATED. "Started/Running" in your animation are both RUNNABLE. Also, a thread can be started only once.
+5. **Race condition fixes:** your notes say "synchronise access". The slides show it running (AtomicInteger) and mention synchronized.
+6. **Added for 2026:** coroutines (Dispatchers, withContext, async, lifecycleScope) as Google's recommended approach, and WorkManager for work that must survive closing the app. Your Thread/Runnable foundation is kept in full — it explains what coroutines do underneath.
 
 ## Lecture 14: Audio Management in Android
 

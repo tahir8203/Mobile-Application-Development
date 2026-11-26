@@ -832,3 +832,32 @@ body.pz-open{overflow:hidden}
 .vmr-clip{display:flex;flex-direction:column;gap:.25rem;padding:.45rem;border:1px solid var(--line);border-radius:10px}
 .vmr-clip audio{width:100%}
 @media (max-width:760px){.vfo,.vsl-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ANR demo, thread life cycle, workers, race condition (Lecture 15) */
+.van{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:.8rem;align-items:start}
+.van .phone-body{position:relative;min-height:14em;align-items:center}
+.van-spin{width:2.6em;height:2.6em;margin:.8em auto .3em;border-radius:50%;border:5px solid #bfdbfe;border-top-color:#2563eb;animation:vlf-rot .8s linear infinite}
+.van-spin.frozen{animation-play-state:paused;border-top-color:#dc2626}
+.van-spin.idle{animation:none;border-color:#e2e8f0;border-top-color:#94a3b8}
+.van-tap{font-size:.75em;text-align:center}
+.van-anr{position:absolute;left:6%;right:6%;top:30%;background:#fff;color:#0f172a;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);padding:.7em;display:flex;flex-direction:column;gap:.35em;font-size:.78em;animation:vlf-fade .3s ease}
+.van-anr span{color:#2563eb;font-weight:700}
+.van-side{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.van-lane{display:grid;grid-template-columns:8.5em minmax(0,1fr);gap:.5rem;align-items:center}
+.van-lane b{font-size:.75em;color:var(--mu)}
+.van-side .vz-console,.vtz .vz-console{white-space:pre-wrap;overflow-wrap:anywhere}
+.vtz{display:flex;flex-direction:column;gap:.55rem}
+.vwk{display:flex;flex-direction:column;gap:.4rem}
+.vwk-row{display:grid;grid-template-columns:4em minmax(0,1fr) 5.5em;gap:.5rem;align-items:center;font-size:.8em}
+.vwk-bar{height:.9em;border-radius:999px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.vwk-bar i{display:block;height:100%;transition:width .4s}
+.vwk-row small{color:var(--mu)}
+.vrc2{display:flex;flex-direction:column;gap:.55rem}
+.vrc2-top{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
+.vrc2-count{display:flex;flex-direction:column;align-items:center;padding:.4rem .9rem;border:2px solid var(--line);border-radius:12px}
+.vrc2-count b{font-size:2em;color:var(--cyan)}.vrc2-count small{font-size:.7em;color:var(--mu)}
+.vrc2-cols{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.vrc2-cols>div{display:flex;flex-direction:column;gap:.25rem;padding:.5rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);min-height:6em}
+.vrc2-cols span{font-family:var(--mono,monospace);font-size:.75em;animation:vlf-fade .3s ease;overflow-wrap:anywhere}
+@media (max-width:760px){.van{grid-template-columns:minmax(0,1fr)}.van-lane{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){.van-spin{animation-duration:3s}.vwk-bar i{transition:none}}
