@@ -1,11 +1,11 @@
 /* MAD Course offline cache. Bump VERSION with the ?v= number in index.html. */
-const VERSION = 'mad-v3';
+const VERSION = 'mad-v4';
 const CORE = ['./', 'index.html', 'manifest.webmanifest',
-  'assets/theme.css?v=3', 'assets/present.css?v=3', 'assets/portal.css?v=3',
-  'assets/portal-data.js?v=3', 'assets/present.js?v=3', 'assets/course-data.js?v=3',
-  'assets/course.js?v=3', 'assets/labs.js?v=3', 'assets/portal.js?v=3',
+  'assets/theme.css?v=4', 'assets/present.css?v=4', 'assets/portal.css?v=4',
+  'assets/portal-data.js?v=4', 'assets/present.js?v=4', 'assets/course-data.js?v=4',
+  'assets/course.js?v=4', 'assets/labs.js?v=4', 'assets/portal.js?v=4',
   'assets/instructor.webp', 'assets/icons/icon-192.png']
-  .concat(Array.from({ length: 16 }, (_, i) => 'assets/slides/l' + String(i + 1).padStart(2, '0') + '.js?v=3'));
+  .concat(Array.from({ length: 16 }, (_, i) => 'assets/slides/l' + String(i + 1).padStart(2, '0') + '.js?v=4'));
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));

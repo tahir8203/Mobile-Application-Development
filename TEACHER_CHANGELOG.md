@@ -7,7 +7,7 @@ Nothing has been pushed or deployed. One commit per lecture.
 
 - Every program output shown on a slide was produced by a **real Kotlin compiler** (Kotlin 2.2.21, `kotlin-compiler-embeddable` from the Gradle cache on this laptop, run on JDK 17 in `D:\MADBuildTools`).
 - A check script loads the deck file, pulls out every `code` slide with `fun main`, every tracer program and every "Try it" answer, then compiles and runs each one. It compares the result character by character with the output on the slide.
-- **Lecture 2 result: 19 / 19 programs match.** The grade tracer was compiled for marks 0, 60, 80, 85, 90, 95 and 100.
+- **Lecture 2 result: 27 / 27 programs match.** The grade tracer was compiled for marks 0, 60, 80, 85, 90, 95 and 100.
 - **Compiler errors** shown on slides ('val' cannot be reassigned, null into String, `.length` on `String?`, private setter) are the real messages from Kotlin 2.2.21.
 - **Tracer states** (line, variables) are hand-authored step by step. Each tracer's console output was compiled and matches.
 - **Android-only code** (the Bridge slide) cannot run outside Android. It was type-checked with the real compiler against small stand-in classes (AppCompatActivity, ActivityMainBinding, TextView, Button, Intent). The XML was checked as well-formed, and its ids match the binding fields.
@@ -31,18 +31,41 @@ All changes are additive and every old deck still works.
 - **New slide kind `try`:** exercises with a 💡 Hint and a ✅ Answer, using native `<details>` so they are keyboard accessible.
 - **Glossary chips:** a `summary` slide can list glossary words as tap/hover chips.
 - **New deck options:**
-  - `update:false` skips the automatic "In 2026" slide (used in L2 to stay at 25 slides).
+  - `update:false` skips the automatic "In 2026" slide (not used any more; the 25-slide limit was removed).
   - `rev:'…'`: when a deck is rebuilt, saved slide positions, "seen" ticks and slide-quiz answers for **that lecture only** are reset, so old positions no longer point at the wrong slides. Lecture completion, bookmarks and certificates are not touched.
 - **Fixes:**
   - Bold text inside bullet points was drawn as a number bubble (`.pz-list li b` changed to `li>b`).
   - Inline code in takeaway boxes broke into vertical letters.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
-- **Cache:** `?v=3` everywhere, and the service worker cache is now `mad-v3`.
+  - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
+- **Cache:** `?v=4` everywhere, and the service worker cache is now `mad-v4`.
 
 ## Lecture 2: Kotlin Language Fundamentals
 
-**Slides: 29 → 25.** That is 22 body slides plus the automatic title, objectives and Bloom slides. The automatic "In 2026" slide is off for this lecture; its points (K2, coroutines, Playground) moved into notes and other slides.
+**Slides: 29 → 41.** That is 37 body slides plus 4 automatic ones: title, objectives, Bloom and "In 2026". You removed the 25-slide limit and asked that nothing be left unexplained, so:
+
+- **Every dense slide was split into one idea per slide.** New slides:
+  - minSdk / targetSdk / compileSdk (with the Gradle file)
+  - how a Kotlin program runs (write → compile → run → output)
+  - variables (animated box)
+  - data types (7 cards)
+  - operators
+  - while / do-while / break / continue
+  - functions: shortcuts (defaults, named arguments, Unit)
+  - lists and arrays (animated)
+  - lambdas
+  - classes and objects
+  - constructors
+  - secondary constructors
+  - **inheritance and polymorphism**
+  - **object and companion object**
+  - the XML layout explained line by line
+  - the Kotlin Activity explained line by line
+  - two classic mistakes
+- **Every technical word a student sees is now explained.** A script lists every CamelCase word, acronym and code word on the student-facing parts of each slide. Each one is either explained in the sentence or has a tooltip. There are 123 tooltip words on the slides, and all have plain-English definitions (meaning + why + analogy where possible).
+- **The "In 2026" slide is back**, with tooltips for the K2 compiler and coroutines.
+- **Glossary:** 104 terms now (44 new from Lecture 2), so they are also in Glossary, Flashcards and search.
 
 ### Corrections to your PDF (Lecture_2.pdf, 11 pages)
 
@@ -60,7 +83,7 @@ All changes are additive and every old deck still works.
 10. **Old portal L2 slides removed or replaced:**
     - "Mistake: comparing strings in Java style" had no string comparison in it.
     - "Loop variations" and "while and do-while loops" overlapped; they are merged into the loop tracer and the Ranges explorer.
-    - Inheritance and polymorphism moved to "next lecture" (see open questions).
+    - Inheritance, polymorphism, object and companion object now have their own slides in this lecture.
 
 ### Terms added (each with plain meaning + why + analogy, as tooltips and in the portal Glossary/Flashcards)
 
@@ -115,7 +138,7 @@ The 12 Lecture 2 topics in `course-data.js` were re-pointed to the new slide tit
    - AOSP's table lists Android17 / API 37 with quarterly release "26Q2", and Wikipedia says it was released on 16 Jun 2026.
    - Google's developer release notes page only shows up to Beta 4.1 (June 2026).
    - The slide shows it as the newest release. Please confirm on a Pixel or on developer.android.com.
-2. **Inheritance, `object` and `companion object`** are flagged "next lecture". Lecture 3 is Android Studio, so where should they go? Options: a short slide in L3, L4, or a revision handout.
+2. *(Resolved: inheritance, object and companion object are now taught in Lecture 2.)*
 3. **Version label.** Your brief asks for "v1.1", but the portal is currently version "2.0" (`portal-data.js`, README "Portal 2.0"). Which label do you want?
 4. **Remote fonts.** `index.html` still loads Google Fonts from the internet (this was already there before the upgrade). Your offline rule says "no remote fonts". Should I remove them and use system fonts?
 5. **Saved progress reset.** Students who already opened Lecture 2 slides will see its slide ticks and slide-quiz answers reset once (lecture completion is kept). Is that OK? The same will happen for each upgraded lecture.

@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=3';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=4';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -153,21 +153,21 @@ Viz.cards=(c,o)=>{
 };
 /* a variable as a labelled box */
 Viz.variable=(c,o)=>{
- const kw=o.keyword||'var',fmt=v=>typeof v==='string'?'"'+v+'"':String(v);
- c.innerHTML='<div class="vv"><div class="vz-code1 vv-code"></div><div class="vv-box"><span class="vv-label">'+esc(o.name)+'</span><span class="vv-val"></span><span class="vv-type">'+esc(o.type)+'</span></div><div class="vz-console vv-out"></div></div>';
+ const T=o.dtype||'Int',kw=o.keyword||'var',fmt=v=>typeof v==='string'?'"'+v+'"':String(v);
+ c.innerHTML='<div class="vv"><div class="vz-code1 vv-code"></div><div class="vv-box"><span class="vv-label">'+esc(o.name)+'</span><span class="vv-val"></span><span class="vv-type">'+esc(T)+'</span></div><div class="vz-console vv-out"></div></div>';
  const code=$('.vv-code',c),val=$('.vv-val',c),out=$('.vv-out',c),box=$('.vv-box',c);
  const steps=[{t:'decl'}];o.values.forEach((v,k)=>steps.push({t:k?'set':'init',v}));if(o.tryChange!==undefined)steps.push({t:'err',v:o.tryChange});steps.push({t:'print'});
  let prev=null;
  return{n:()=>steps.length,note:'logic',
   draw(i){let cur=null,lines=[];
-   for(let k=0;k<=i;k++){const s=steps[k];if(s.t==='init'){cur=s.v;lines.push(kw+' '+o.name+': '+o.type+' = '+fmt(s.v))}else if(s.t==='set'){cur=s.v;lines.push(o.name+' = '+fmt(s.v))}else if(s.t==='err')lines.push(o.name+' = '+fmt(s.v)+'   // ✗ not allowed');else if(s.t==='print')lines.push('println('+o.name+')')}
-   const s=steps[i];if(s.t==='decl')lines=[kw+' '+o.name+': '+o.type];
+   for(let k=0;k<=i;k++){const s=steps[k];if(s.t==='init'){cur=s.v;lines.push(kw+' '+o.name+': '+T+' = '+fmt(s.v))}else if(s.t==='set'){cur=s.v;lines.push(o.name+' = '+fmt(s.v))}else if(s.t==='err')lines.push(o.name+' = '+fmt(s.v)+'   // ✗ not allowed');else if(s.t==='print')lines.push('println('+o.name+')')}
+   const s=steps[i];if(s.t==='decl')lines=[kw+' '+o.name+': '+T];
    code.innerHTML=lines.map(l=>hlLine(l,'kotlin')).join('\n');
    $$('.vv-old',box).forEach(x=>x.remove());
    if(prev!==null&&cur!==null&&cur!==prev)box.appendChild(el('span','vv-old',esc(fmt(prev))));
    val.textContent=cur===null?'':fmt(cur);val.classList.remove('on-pop');void val.offsetWidth;if(s.t==='init'||s.t==='set')val.classList.add('on-pop');
-   out.innerHTML=s.t==='err'?'<span class="vv-err">Error: Val cannot be reassigned</span>':s.t==='print'?esc(String(cur)):'';prev=cur},
-  cap(i){const s=steps[i];return s.t==='decl'?'A variable is a **labelled box**. `'+o.name+'` is the label; `'+o.type+'` decides what can go inside.':s.t==='init'?'The value **'+fmt(s.v)+'** is stored in the box.':s.t==='set'?'The old value is thrown away. The box now holds **'+fmt(s.v)+'**.':s.t==='err'?'`val` boxes are **sealed**: changing them is a compile-time error.':'`println('+o.name+')` reads the box and prints the **current** value.'}};
+   out.innerHTML=s.t==='err'?'<span class="vv-err">error: \'val\' cannot be reassigned</span>':s.t==='print'?esc(String(cur)):'';prev=cur},
+  cap(i){const s=steps[i];return s.t==='decl'?'A variable is a **labelled box**. `'+o.name+'` is the label; `'+T+'` decides what can go inside.':s.t==='init'?'The value **'+fmt(s.v)+'** is stored in the box.':s.t==='set'?'The old value is thrown away. The box now holds **'+fmt(s.v)+'**.':s.t==='err'?'`val` boxes are **sealed**: changing them is a compile-time error.':'`println('+o.name+')` reads the box and prints the **current** value.'}};
 };
 /* if / else-if / else and when */
 Viz.decision=(c,o,ctl)=>{
