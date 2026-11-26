@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=8';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=9';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -559,6 +559,36 @@ Viz.backstack=(c,o)=>{
   cap(i){if(!i)return o.intro||'The app is not running yet.';const op=o.ops[i-1];return op[0]==='push'?'`startActivity(…)` **pushes** '+op[1]+' on top. The user now sees it.':'**Back** (or `finish()`) **pops** the top screen; the one below becomes visible again.'}};
 };
 
+/* Permission life-cycle (Android 11+ rules): deny once → explain (rationale) and ask again; deny twice → the dialog no longer appears → send the user to Settings */
+Viz.permlife=(c,o,ctl)=>{
+ const P=o.perm||'CAMERA';let st;
+ const reset=()=>{st={granted:false,denies:0,dialog:false,rationale:false,settings:false,log:[]}};reset();
+ const w=el('div','vpl');const ph=el('div','vpl-ph');const side=el('div','vpl-side');w.appendChild(ph);w.appendChild(side);c.appendChild(w);
+ const rationale=()=>st.denies===1&&!st.granted;               /* shouldShowRequestPermissionRationale */
+ const blocked=()=>st.denies>=2&&!st.granted;                 /* the system no longer shows the dialog */
+ function tap(){st.dialog=false;st.rationale=false;st.settings=false;
+  if(st.granted){st.log.push('✅ Already granted → '+o.feature);return}
+  if(blocked()){st.log.push('🚫 launch() → no dialog, answer = denied at once');st.settings=true;return}
+  if(rationale()){st.rationale=true;st.log.push('💡 rationale: explain why, then ask again');return}
+  st.dialog=true;st.log.push('💬 system dialog shown')}
+ function answer(a){if(!st.dialog)return;st.dialog=false;if(a){st.granted=true;st.log.push('✅ Allow → '+o.feature)}else{st.denies++;st.log.push('❌ Don’t allow ('+st.denies+')')}}
+ function cont(){if(!st.rationale)return;st.rationale=false;st.dialog=true;st.log.push('💬 system dialog shown again')}
+ function settings(){st.settings=false;st.granted=true;st.log.push('⚙️ user allowed it in Settings → '+o.feature)}
+ const acts={tap,allow:()=>answer(true),deny:()=>answer(false),cont,settings,reset};
+ function render(){let body='<button type="button" class="w-btn" data-x="tap">'+esc(o.action)+'</button>';
+  if(st.granted)body+='<div class="w-img">'+esc(o.icon||'📷')+'</div>';
+  if(st.dialog)body+='<div class="phone-dim"></div><div class="phone-dialog"><p>Allow <b>'+esc(o.app)+'</b> to '+esc(o.ask)+'?</p><div class="acts"><button type="button" data-x="deny">Don’t allow</button><button type="button" data-x="allow">Allow</button></div></div>';
+  if(st.rationale)body+='<div class="phone-dim"></div><div class="phone-dialog"><p><b>Why we need this</b><br>'+esc(o.why)+'</p><div class="acts"><button type="button" data-x="cont">Continue</button></div></div>';
+  if(st.settings)body+='<div class="phone-dim"></div><div class="phone-dialog"><p>'+esc(o.blockedMsg)+'</p><div class="acts"><button type="button" data-x="settings">Open Settings</button></div></div>';
+  ph.innerHTML=phone(o.app,body);
+  side.innerHTML='<table class="vtc-vars"><tbody><tr><th>granted</th><td>'+st.granted+'</td></tr><tr><th>times denied</th><td>'+st.denies+'</td></tr><tr><th>shouldShow…Rationale</th><td>'+rationale()+'</td></tr><tr><th>dialog still shown?</th><td>'+(!blocked())+'</td></tr></tbody></table><div class="vz-console">'+esc(st.log.slice(-6).join('\n'))+'</div><button type="button" class="vz-btn" data-x="reset">↺ New install</button>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();acts[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'',
+  draw(i){reset();for(let k=1;k<=i;k++)acts[S[k].a]();render()},
+  cap:i=>S[i].cap};
+};
+
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
  play:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>',
@@ -665,7 +695,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');

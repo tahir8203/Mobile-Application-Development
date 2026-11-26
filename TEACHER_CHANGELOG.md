@@ -39,8 +39,70 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=8` everywhere, and the service worker cache is now `mad-v8`.
+- **Cache:** `?v=9` everywhere, and the service worker cache is now `mad-v9`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
+
+## Lecture 6: Android Permissions
+
+**Slides: 20 → 32.** That is 28 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 6.docx". Lecture 5 previews this topic; this lecture teaches it in full (your decision).
+
+### What changed
+
+- **Your notes' structure is kept:**
+  - what a permission is
+  - types
+  - manifest vs runtime
+  - writing the manifest permission
+  - the full camera example
+  - common mistakes
+  - "what if denied?"
+- **Both request styles are taught.** Your notes' `requestPermissions` + `onRequestPermissionsResult` code is shown and explained, marked as deprecated. Then the modern Activity Result API, then a short side-by-side comparison.
+- **New permission life-cycle demo** (new `permlife` widget):
+  - students tap Allow or Don't allow and see the 1st request, the rationale, the 2nd request, then "no more pop-ups" and the Settings path
+  - a live table shows granted, times denied, `shouldShowRequestPermissionRationale` and whether the dialog still appears
+  - this answers your notes' exam idea: "What happens if permission is denied?"
+- **New slides:**
+  - why permissions exist (sandbox)
+  - three kinds (normal / runtime / special)
+  - the rationale dialog
+  - opening App info settings
+  - location precise vs approximate
+  - several permissions at once
+  - notification permission with a version check
+  - photos and the photo picker (no permission)
+  - "Android takes permissions back" (one-time, auto-reset)
+  - two mistake slides (the second is your notes' mistake list)
+  - a corrected lab task
+- **41 defined terms.** Examples: normal / runtime / special / signature permission, `uses-permission`, `Manifest.permission`, checkSelfPermission, request code, launcher, rationale, App info settings, precise / approximate / background location, POST_NOTIFICATIONS, READ_MEDIA_IMAGES, photo picker, PickVisualMedia, one-time permission, auto-reset, SecurityException. 25 were added to the portal glossary, which now has 295 terms.
+- **Engine:** the new `permlife` widget; cache is now `?v=9` / `mad-v9`.
+- **Course Outline:** all 4 Lecture 6 topics land on the matching slides.
+
+### Verification
+
+All Kotlin was compiled with Kotlin 2.2.21 against stand-in Android classes, with simulated answers.
+
+- **Your notes' older code** (converted to ViewBinding): deny → "Permission Denied"; allow → "Permission Granted"; tap again → "Permission Already Granted".
+- **Modern code:** deny → "Camera permission denied"; allow → "Camera ready"; tap again → "Camera ready" with no pop-up.
+- **Rationale:** the explanation dialog appears on the 2nd request.
+- **Settings:** the Intent opens `package:com.example.first`.
+- **Location:** approximate only → "Approximate location on"; both → "Precise location on"; none → "Location off — enter your city by hand".
+- **Notifications:** API 36 asks POST_NOTIFICATIONS; API 31 starts reminders directly.
+- **Photo picker:** a chosen photo is shown in the ImageView; cancel → "No photo chosen".
+- **XML:** the manifest is well-formed.
+- **Facts checked on developer.android.com (26 Nov 2026):**
+  - `onRequestPermissionsResult` was "Deprecated in 1.2.0 … in favor of using the Activity Result API" (reference/androidx/activity/ComponentActivity).
+  - If the user taps Deny more than once, the system dialog is no longer shown (training/permissions/requesting).
+  - Requesting FINE + COARSE gives the user a Precise / Approximate choice on Android 12+ (develop/sensors-and-location/location/permissions/runtime).
+  - Android 13 added the READ_MEDIA_* permissions (about/versions/13/behavior-changes-13).
+  - The permission types are install-time, runtime and special (guide/topics/permissions/overview).
+
+### Corrections to your notes
+
+1. **`onRequestPermissionsResult` is deprecated** (AndroidX Activity 1.2.0). It is still shown so students can read it, next to the Activity Result API.
+2. **Lab task "Request Storage permission":** on Android 13+ the old storage permission gives no access to photos. Use READ_MEDIA_IMAGES or, better, the photo picker, which needs no permission. The lab task was changed.
+3. **The manifest** still has `package="com.example.first"` (it now lives in build.gradle.kts as `namespace`), and the launcher activity has no `android:exported="true"`, which Android 12+ requires.
+4. **Denials:** the notes say "user responds → app handles result" but not what happens after repeated denials. Since Android 11, two denials stop the dialog, so the app must offer Settings. A demo slide and a code slide were added.
+5. **Types:** the notes list normal and dangerous only. The official overview also has special permissions (Settings screen) and signature permissions; both are mentioned.
 
 ## Lecture 5: Activities, Intents, GSM & Permissions
 

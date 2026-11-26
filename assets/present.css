@@ -557,3 +557,10 @@ body.pz-open{overflow:hidden}
 @media (max-width:760px){.vbs{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){.vbs-card.in{animation:none}}
 .pz h2,.pz-text,.pz-opt span,.pz-list span,.vtl-card,.vns-row code{overflow-wrap:anywhere}
+
+/* permission life-cycle */
+.vpl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;align-items:start}
+.vpl-side{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.vpl-side .vz-console{min-height:7em;font-size:.82em}
+.vpl-side .vz-btn{align-self:flex-start;min-height:40px}
+@media (max-width:760px){.vpl{grid-template-columns:minmax(0,1fr)}}
