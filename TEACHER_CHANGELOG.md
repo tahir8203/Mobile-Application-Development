@@ -39,9 +39,90 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=18` everywhere, and the service worker cache is now `mad-v18`.
+- **Cache:** `?v=19` everywhere, and the service worker cache is now `mad-v19`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 16: Services & Broadcast Receivers
+
+**Slides: 33 in total.** That is 29 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 16 Android_Services_and_Broadcast_Receivers.html", in the order of its 9 sections:
+1. What is a Service
+2. Service vs Activity
+3. Creating
+4. Running
+5. Stopping
+6. Broadcast Receiver
+7. Signals
+8. Registering
+9. Unregistering
+
+Your Test Yourself questions are included. Your notes were already modern and accurate (Android 12 foreground limits, Android 8 manifest limits, export flags), so the changes are mostly completion and widgets. **Java versions were dropped**, because the course is Kotlin-only.
+
+### What changed
+
+- **Two new live widgets** (replacing your notes' seven small animations):
+  - **Service lab** (`svclab`): Activity and Service lanes with startService / startForegroundService / bindService / unbindService / Close Activity / stopService. It follows the real rules: onCreate once, onStartCommand with a new startId per start, a foreground notification, a bound-only service ending on the last unbind, and "started + bound" needing both stop and unbind.
+  - **Broadcast lab** (`bcastlab`): register, send signals (power, battery low, boot), stop the screen with and without unregistering (stale delivery), and the double-unregister error.
+- **Code your notes only sketched, completed:**
+  - DownloadService does its work in a coroutine and calls stopSelf(startId).
+  - The bound service now has its full LocalBinder + ServiceConnection; your notes used `connection` without defining it.
+  - A complete foreground MusicService uses ServiceCompat.startForeground with the mediaPlayback type, plus the manifest lines.
+  - A WorkManager worker with constraints.
+  - A BootReceiver that reads a saved alarm (Lecture 8).
+  - A custom broadcast sent with setPackage and received with RECEIVER_NOT_EXPORTED.
+- **New slides:**
+  - three kinds of Service
+  - "A Service is NOT a thread"
+  - modern background limits (Android 8 / 12 / 14 / 15)
+  - Service or WorkManager?
+  - manifest vs code registration
+  - long work in onReceive (mistake)
+- **32 defined terms.** Examples: Service, started/foreground/bound service, onStartCommand, onBind, IBinder, ServiceConnection, startId, START_NOT_STICKY, foreground service type, ServiceCompat.startForeground, background execution limits, WorkManager, CoroutineWorker, BroadcastReceiver, onReceive, IntentFilter, implicit broadcast, RECEIVER_EXPORTED/NOT_EXPORTED, unregisterReceiver, BOOT_COMPLETED, goAsync(). 28 were added to the portal glossary, which now has 588 terms.
+- **Cache:** `?v=19` / `mad-v19`.
+- **Course Outline:** all 8 Lecture 16 topics already land on matching slides.
+
+### Verification
+
+- **Kotlin:** all 6 Kotlin code slides plus the Kotlin halves of the two compare slides were taken straight from the deck. They were compiled together with Kotlin 2.2.21 against stand-in Android classes and run with a stand-in "system" that follows the documented service and broadcast rules.
+- **DownloadService (real coroutines):** onCreate once; onStartCommand #1 and #2; **stopSelf(1) ignored because #2 is newer**; onDestroy after the last download. The Start/Stop buttons work.
+- **MusicService:** the foreground notification with the mediaPlayback type; tapping Play twice still creates only **one** player; stop releases it.
+- **Bound TimerService:** bind → onBind → timer ready; unbind → the service ends, and timer is cleared.
+- **WorkManager:** the unique periodic work is enqueued (compile and call only — WorkManager itself was a stand-in).
+- **BootReceiver:** no saved alarm → nothing; "07:30" saved → re-scheduled; a fake action is ignored.
+- **ChargingActivity:**
+  - plug → 🔌 Charging, unplug → 🔋 On battery
+  - Home → unregistered, so a later plug-in is not delivered
+  - a second onStop is safe thanks to the flag
+  - unregistering a receiver that was never registered → IllegalArgumentException
+- **Custom broadcast:** delivered to the NOT_EXPORTED receiver with file = notes.pdf.
+- **XML:** the service declaration and the boot-receiver manifest are well-formed.
+- **Browser:** no script errors; all 33 slides have no sideways scrolling at 360 px; both widgets tested by script.
+- **Final course check:** all 16 lectures (602 slides) open and reach their summary slide with no script errors.
+- **Facts checked on developer.android.com (26 Nov 2026):**
+  - **Broadcasts overview:**
+    - RECEIVER_EXPORTED for system/other-app broadcasts, RECEIVER_NOT_EXPORTED for your own
+    - manifest receivers for system broadcasts use exported="true"
+    - Android 8 manifest restriction on most implicit broadcasts
+    - the process can be killed after onReceive returns; goAsync must finish "under 10 seconds"
+  - **Android 14 behaviour changes:** context-registered receivers must specify a flag (exception: only system broadcasts); every foreground service needs a type.
+  - **Restrictions on starting a foreground service from the background:** Android 12+ → ForegroundServiceStartNotAllowedException.
+  - **Background Execution Limits (Android 8):** idle apps' background services are stopped; startForeground() must be called within five seconds of startForegroundService().
+  - **Foreground service types:** mediaPlayback → FOREGROUND_SERVICE_MEDIA_PLAYBACK; Android 15 BOOT_COMPLETED restrictions for mediaPlayback and dataSync.
+  - **Declare foreground services:** FOREGROUND_SERVICE + the type permission, and foregroundServiceType on `<service>`.
+  - **Launch a foreground service:** ServiceCompat.startForeground(…, id ≠ 0, …, type on API 30+).
+
+### Corrections and additions to your notes
+
+1. **The bound-service example used `connection` without defining it.** The full LocalBinder + ServiceConnection pattern was added, unbinding in the matching callback. onServiceDisconnected is only called on a crash, so the reference is cleared manually.
+2. **`onStartCommand` only had a comment, "Move slow work off the main thread".** It now shows how (a coroutine on Dispatchers.IO), with stopSelf(startId) so an early finish cannot cut off a newer request.
+3. **The foreground service** was only an idea in your notes (startForeground(NOTIFICATION_ID, buildNotification())). Added:
+   - the notification channel
+   - ServiceCompat.startForeground with its type
+   - the three manifest lines (FOREGROUND_SERVICE, FOREGROUND_SERVICE_MEDIA_PLAYBACK, foregroundServiceType)
+   - the 5-second rule
+   - the Android 14 type requirement
+   - the Android 15 boot restriction
+4. **Java examples removed** (Kotlin-only course). Everything else in your notes — the analogies, the tables, the export-flag guidance and the registration pairs — is kept.
 
 ## Lecture 15: Threads in Android
 

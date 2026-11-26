@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=18';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=19';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -989,6 +989,42 @@ Viz.racelab=(c,o,ctl)=>{
   w.innerHTML='<div class="vrc2-top"><div class="vrc2-count"><small>shared count</small><b>'+s[2]+'</b><small>expected '+(i>=P.length-1?7:'…')+'</small></div><div class="vpd-acts"><button type="button" class="vz-btn" data-s="0" aria-pressed="'+!sync+'">count++ (no lock)</button><button type="button" class="vz-btn" data-s="1" aria-pressed="'+sync+'">synchronized / Atomic</button></div></div><div class="vrc2-cols"><div><b>Thread A</b>'+shown.filter(x=>x[0]==='A').map(x=>'<span>'+esc(x[1])+'</span>').join('')+'</div><div><b>Thread B</b>'+shown.filter(x=>x[0]==='B').map(x=>'<span>'+esc(x[1])+'</span>').join('')+'</div></div>'+(i>=P.length-1?'<div class="vij-res '+(s[2]===7?'ok':'bad')+'"><b>'+(s[2]===7?'✅ count = 7':'⛔ count = 6 — one increment lost')+'</b><small>'+(s[2]===7?'Only one thread at a time may do read-add-write.':'Both threads read 5 before either wrote: a race condition.')+'</small></div>':'');
   $$('[data-s]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();sync=b.dataset.s==='1';render(ctl.i||0)}))}
  return{n:()=>6,note:'logic',draw(i){render(i)},cap:i=>['Two threads both want to add 1 to count (5). count++ is really three steps: read, add, write.','The second thread reads before the first one has written…','Each adds 1 to the value it read.','…','First write: 6.','Second write: also 6 — one increment disappeared. Switch on synchronized/Atomic and replay.'][i]};
+};
+/* Service lab: an Activity and a Service. Start (started/foreground), bind/unbind, close the screen, stop — with the real callback rules. */
+Viz.svclab=(c,o,ctl)=>{
+ const w=el('div','vsv');c.appendChild(w);let st;
+ const reset=()=>{st={screen:true,alive:false,started:false,fg:false,clients:0,id:0,log:['(no service yet)']}};
+ const L=s=>st.log.push(s);
+ const create=()=>{if(!st.alive){st.alive=true;L('onCreate()')}};
+ const maybeDestroy=()=>{if(st.alive&&!st.started&&st.clients===0){st.alive=false;st.fg=false;L('onDestroy() — clean up')}};
+ const A={
+  start(){create();st.started=true;st.id++;L('onStartCommand(startId = '+st.id+')')},
+  fg(){create();st.started=true;st.id++;L('onStartCommand(startId = '+st.id+')');st.fg=true;L('startForeground(…) → notification shown')},
+  bind(){if(!st.screen)return;create();st.clients++;if(st.clients===1)L('onBind() → the Activity gets the binder');else L('another client bound')},
+  unbind(){if(st.clients===0)return;st.clients--;if(st.clients===0)L('onUnbind()');maybeDestroy()},
+  close(){if(!st.screen)return;st.screen=false;L('Activity closed (onStop/onDestroy)');if(st.clients){st.clients=0;L('Activity unbinds → onUnbind()');maybeDestroy()}},
+  open(){st.screen=true;L('Activity opened again')},
+  stop(){if(!st.alive)return;st.started=false;L('stopService() / stopSelf()');if(st.clients)L('still bound — the Service keeps running');maybeDestroy()}};
+ function render(){w.innerHTML='<div class="vsv-lanes"><div class="vsv-box '+(st.screen?'on':'')+'"><b>📱 Activity</b><small>'+(st.screen?'visible':'closed')+'</small></div><div class="vsv-box '+(st.alive?'on':'')+(st.fg?' fg':'')+'"><b>⚙️ Service</b><small>'+(st.alive?(st.started?'started':'')+(st.started&&st.clients?' + ':'')+(st.clients?'bound ('+st.clients+')':''):'not running')+'</small>'+(st.fg?'<span class="vsv-notif">🔔 Playing music…</span>':'')+'</div></div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="start">startService()</button><button type="button" class="vz-btn" data-x="fg">startForegroundService()</button><button type="button" class="vz-btn" data-x="bind">bindService()</button><button type="button" class="vz-btn" data-x="unbind">unbindService()</button><button type="button" class="vz-btn" data-x="'+(st.screen?'close':'open')+'">'+(st.screen?'⌂ Close Activity':'↩ Open Activity')+'</button><button type="button" class="vz-btn" data-x="stop">■ stopService()</button></div><div class="vz-console">'+esc(st.log.slice(-5).join('\n'))+'</div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){reset();(S[i].a||[]).forEach(a=>A[a]());render()},cap:i=>S[i].cap};
+};
+/* Broadcast lab: a screen registers a receiver for some actions; signals arrive; forgetting to unregister delivers to a stopped screen. */
+Viz.bcastlab=(c,o,ctl)=>{
+ const w=el('div','vbc');c.appendChild(w);let st;
+ const ACT={power:'ACTION_POWER_CONNECTED',low:'ACTION_BATTERY_LOW',boot:'ACTION_BOOT_COMPLETED',tz:'ACTION_TIMEZONE_CHANGED'};
+ const reset=()=>{st={reg:false,screen:true,log:['receiver not registered']}};
+ const A={register(){if(st.reg)return;st.reg=true;st.log.push('registerReceiver(filter: POWER_CONNECTED, POWER_DISCONNECTED)')},
+  unregister(){if(!st.reg){st.log.push('unregisterReceiver() when not registered → IllegalArgumentException');return}st.reg=false;st.log.push('unregisterReceiver()')},
+  stopScreen(){st.screen=false;st.log.push('Activity stopped')},startScreen(){st.screen=true;st.log.push('Activity visible again')},
+  power(){st.log.push('📢 '+ACT.power+' → '+(st.reg?(st.screen?'onReceive(): show “Charging”':'⚠️ onReceive() on a STOPPED screen (stale delivery)'):'no registered receiver — ignored'))},
+  low(){st.log.push('📢 '+ACT.low+' → not in this filter — ignored')},
+  boot(){st.log.push('📢 '+ACT.boot+' → goes to the manifest BootReceiver (not this one)')}};
+ function render(){w.innerHTML='<div class="vsv-lanes"><div class="vsv-box '+(st.screen?'on':'')+'"><b>📱 Charging screen</b><small>'+(st.screen?'visible':'stopped')+'</small></div><div class="vsv-box '+(st.reg?'on':'')+'"><b>📻 powerReceiver</b><small>'+(st.reg?'registered':'not registered')+'</small></div></div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="register">registerReceiver</button><button type="button" class="vz-btn" data-x="unregister">unregisterReceiver</button><button type="button" class="vz-btn" data-x="'+(st.screen?'stopScreen':'startScreen')+'">'+(st.screen?'⌂ Activity stops':'↩ Activity starts')+'</button><button type="button" class="vz-btn" data-x="power">🔌 Power connected</button><button type="button" class="vz-btn" data-x="low">🪫 Battery low</button><button type="button" class="vz-btn" data-x="boot">⏻ Boot</button></div><div class="vz-console">'+esc(st.log.slice(-5).join('\n'))+'</div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){reset();(S[i].a||[]).forEach(a=>A[a]());render()},cap:i=>S[i].cap};
 };
 
 /* ---------- presentation ---------- */

@@ -861,3 +861,13 @@ body.pz-open{overflow:hidden}
 .vrc2-cols span{font-family:var(--mono,monospace);font-size:.75em;animation:vlf-fade .3s ease;overflow-wrap:anywhere}
 @media (max-width:760px){.van{grid-template-columns:minmax(0,1fr)}.van-lane{grid-template-columns:minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){.van-spin{animation-duration:3s}.vwk-bar i{transition:none}}
+
+/* Service lab and broadcast lab (Lecture 16) */
+.vsv,.vbc{display:flex;flex-direction:column;gap:.6rem}
+.vsv-lanes{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.vsv-box{position:relative;display:flex;flex-direction:column;gap:.2rem;padding:.7rem;border-radius:14px;border:2px dashed var(--line);background:var(--bg);opacity:.55;transition:all .3s;min-width:0}
+.vsv-box.on{opacity:1;border-style:solid;border-color:var(--cyan);box-shadow:0 0 0 4px rgba(34,211,238,.15)}
+.vsv-box.fg{border-color:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.18)}
+.vsv-box small{color:var(--mu);font-size:.78em;overflow-wrap:anywhere}
+.vsv-notif{font-size:.75em;background:#0f172a;color:#fff;border-radius:999px;padding:.25em .6em;align-self:flex-start;animation:vlf-fade .3s ease}
+.vsv .vz-console,.vbc .vz-console{white-space:pre-wrap;overflow-wrap:anywhere}
