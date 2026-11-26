@@ -39,9 +39,97 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=13` everywhere, and the service worker cache is now `mad-v13`.
+- **Cache:** `?v=14` everywhere, and the service worker cache is now `mad-v14`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 11: SQLite in Android
+
+**Slides: 42 in total.** That is 38 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 11 _SQLite_in_Android.html", in the order of its 8 sections:
+1. What is SQLite
+2. Installing (nothing to install)
+3. SQL commands
+4. The four classes
+5. The Student CRUD app
+6. The Login & Registration app
+7. Checking stored data
+8. Summary and quiz
+
+Filters (an outline topic) and Room were added.
+
+### What changed
+
+- **Compose removed** (the old Room example used it). Every screen uses ViewBinding.
+- **Three new live widgets:**
+  - **Cursor walker** (`cursorwalk`): the cursor arrow starts "before first", moves row by row, shows moveToNext()'s true/false, lights up the matching Kotlin line, builds the output, and ends with close().
+  - **Filter builder** (`sqlfilter`): drop-downs for marks ≥, name starts with, city, ORDER BY and LIMIT. It shows the SQL with ? placeholders, the args array and the matching rows of an 8-student table, with six presets.
+  - **SQL injection demo** (`injection`): type a username and password and switch between "glued into the string" and "? placeholders". The classic `' OR '1'='1` logs in without the password only in the glued version; a stray quote (O'Brien) crashes it.
+- The existing `table` widget now animates the full CRUD sequence, including "a deleted id is not reused" (AUTOINCREMENT) and "DELETE without WHERE".
+- **New slides:**
+  - SQLite vs the other storage options
+  - where the .db file lives
+  - the five SQL commands with results
+  - the UPDATE/DELETE-without-WHERE mistake
+  - onCreate vs onUpgrade
+  - the Cursor walk
+  - the complete layout and MainActivity
+  - the Login & Registration flow, helper, both Activities and both layouts
+  - the injection demo and its mistake slide
+  - passwords in real apps
+  - the filter builder, query() in Kotlin and common SQL filters with results
+  - checking data (Database Inspector + DB Browser)
+  - Room in three files, SQLiteOpenHelper vs Room, and closing the Cursor
+  - your 5-question quiz
+- **39 defined terms.** Examples: database, SQLite, SQL, relational, serverless, primary key, AUTOINCREMENT, CRUD, WHERE, SQLiteOpenHelper, ContentValues, Cursor, execSQL, rawQuery, query(), onUpgrade, placeholder, SQL injection, getColumnIndexOrThrow, LIKE, ORDER BY, LIMIT, Database Inspector, hash, Room, Entity, DAO. 34 were added to the portal glossary, which now has 453 terms.
+- **Cache:** `?v=14` / `mad-v14`.
+- **Course Outline:** all 6 Lecture 11 topics already land on matching slides.
+
+### Verification
+
+- **SQL on real SQLite** (Node's built-in node:sqlite):
+  - the five-commands slide and its output panel
+  - the whole CRUD animation, step by step: ids 1, 2, 3; delete 3; the new row gets id 4; DELETE without WHERE empties the table
+  - the UNIQUE username rejecting a duplicate ("UNIQUE constraint failed")
+  - the injection: the glued `' OR '1'='1` returns every row, the placeholder version returns none, and O'Brien gives a syntax error
+  - all six filter-builder presets, which match the widget's own results
+  - the six "Common filters" lines, which match the output panel
+  - search(21, "S") → Saad (22), Sana (21)
+- **Kotlin:** all 7 Kotlin code slides were taken straight from the deck and compiled together with Kotlin 2.2.21 against stand-in Android classes, backed by a small in-memory table. The simulations covered:
+  - insert/read/update/delete return values
+  - search
+  - the cursor walk, with every cursor closed afterwards
+  - onUpgrade dropping the rows
+  - every button in MainActivity, including the empty age box and an id that does not exist
+  - the Login helper (UNIQUE, right and wrong password)
+  - RegisterActivity: empty fields, mismatched passwords, a new account, a taken name
+  - LoginActivity: success opens WelcomeActivity with USER_NAME, a wrong password, and SIGNUP
+  - The Room file was compiled against stand-in annotations; Room's code generator itself was not run.
+- **XML:** the CRUD layout and the register/login layouts are well-formed.
+- **Browser:** no script errors; all 42 slides have no sideways scrolling at 360 px; the widgets were tested by script and by hand (including a manual filter); Lecture 9 and 10 widgets re-checked.
+- **Facts checked on 26 Nov 2026:**
+  - developer.android.com, "Save data using SQLite":
+    - "we highly recommended using the Room Persistence Library"
+    - getWritableDatabase()/getReadableDatabase() "are expensive to call when the database is closed … optimal to close the database in the onDestroy()"
+    - read columns with getColumnIndex()/getColumnIndexOrThrow()
+    - open the database on a background thread
+  - Database Inspector: needs API 26+, and is read-only while "Live updates" is on.
+  - Room releases: 2.8.5 stable, KSP for Kotlin.
+  - sqlite.org/autoinc: "The AUTOINCREMENT keyword imposes extra CPU, memory, disk space, and disk I/O overhead and should be avoided if not strictly needed".
+
+### Corrections to your notes
+
+1. **`toInt()` on the age/id boxes** crashes when a box is empty. The slides use `toIntOrNull()` with a message.
+2. **`db.close()` inside every helper function:** Google advises keeping the connection open and closing the helper in the Activity's onDestroy(), because reopening is expensive. The slides do that.
+3. **Reading columns by number** (`getInt(0)`, `getString(1)`): this breaks silently if the column order changes. The slides use `getColumnIndexOrThrow("name")`, as Google's guide does. Numbers stay only where the query lists its own columns.
+4. **Cursors closed by hand:** correct, but easy to miss on early returns. The slides use `.use { }`.
+5. **`onUpgrade` = DROP + CREATE** deletes every saved row. It is kept for learning, with a note that real apps use ALTER TABLE.
+6. **AUTOINCREMENT:** it is kept because your notes and exams use it. sqlite.org says it is usually unnecessary (INTEGER PRIMARY KEY already fills ids); its only effect is that deleted ids are never reused, which the CRUD animation shows.
+7. **Update/Delete silently did nothing for an unknown id.** The slides now report "No student with id …". Register ignored insertEntry()'s result; it now shows "Registration failed".
+8. **USERNAME had no UNIQUE rule:** it is added as a safety net behind userExists().
+9. **Plain-text passwords:** your notes already warn about this. A slide adds: store a salted, slow hash, or better, use a login server (Firebase Authentication, Lecture 12).
+10. **"The Database Inspector updates live while the app runs":** only with the "Live updates" box ticked (then the table is read-only). It needs API 26+.
+11. **`onCreate(db: SQLiteDatabase?)` + `db?.execSQL`:** Android always passes a database, so the non-null type is used.
+12. **The heading says "Lecture 9"** (left over from an earlier numbering); this is Lecture 11.
 
 ## Lecture 10: Lists, Location & Geocoder
 

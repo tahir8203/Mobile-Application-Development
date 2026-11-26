@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=13';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=14';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -736,6 +736,60 @@ Viz.locflow=(c,o)=>{
   draw(i){const s=S[i];w.innerHTML='<div class="vlf-ph">'+phone(o.app||'GPS Demo',scr[s.screen](s))+'</div><div class="vlf-side"><div class="vlf-steps">'+S.map((x,j)=>'<span class="'+(j===i?'cur':j<i?'done':'')+'">'+(j+1)+'. '+esc(x.label)+'</span>').join('')+'</div><pre class="val-code vlf-code">'+(s.code||'').split('\n').map(l=>'<span class="ln">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre></div>'},
   cap:i=>S[i].cap};
 };
+/* Cursor walker: the cursor arrow moves row by row through a query result while the matching Kotlin line lights up. */
+Viz.cursorwalk=(c,o)=>{
+ const R=o.rows,C=o.cols,L=o.code.split('\n'),at=o.at;
+ const S=[{k:'query',pos:-1,cap:'`rawQuery()` runs the SELECT. The cursor waits **before** the first row (position −1).'}];
+ R.forEach((r,i)=>{S.push({k:i?'next':'first',pos:i,ret:true,cap:(i||o.loop==='while'?'`moveToNext()`':'`moveToFirst()`')+' returns **true**: the cursor points at row '+i+'.'});S.push({k:'read',pos:i,read:i,cap:'Read the columns of the current row with `getInt` / `getString` (by column name).'})});
+ S.push({k:'next',pos:R.length,ret:false,cap:'`moveToNext()` returns **false**: no more rows, the loop ends.'});
+ S.push({k:'close',pos:R.length,closed:true,cap:'`close()` frees the cursor. Always close it (or use `.use { }`).'});
+ const w=el('div','vcw');c.appendChild(w);
+ return{n:()=>S.length,note:'logic',
+  draw(i){const s=S[i],out=[];for(let k=0;k<=i;k++)if(S[k].read!=null)out.push(o.line(R[S[k].read]));
+   const rows=R.map((r,j)=>'<tr class="'+(j===s.pos&&!s.closed?'cur':'')+(j<s.pos||s.closed?' seen':'')+'"><td class="vcw-ar">'+(j===s.pos&&!s.closed?'▶':'')+'</td>'+r.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join('');
+   const pre=s.pos===-1?'<tr class="cur"><td class="vcw-ar">▶</td><td colspan="'+C.length+'" class="vcw-edge">before first (−1)</td></tr>':'',post=s.pos===R.length&&!s.closed?'<tr class="cur"><td class="vcw-ar">▶</td><td colspan="'+C.length+'" class="vcw-edge">after last</td></tr>':'';
+   const hl=at[s.k];
+   w.innerHTML='<div class="vcw-l"><table class="vcw-t'+(s.closed?' closed':'')+'"><thead><tr><th></th>'+C.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+pre+rows+post+'</tbody></table>'+(s.ret!=null?'<div class="vcw-ret '+(s.ret?'ok':'no')+'">returns '+s.ret+'</div>':'')+'</div><div class="vcw-r"><pre class="val-code">'+L.map((l,k)=>'<span class="ln'+(k===hl||(Array.isArray(hl)&&hl.includes(k))?' vcw-hl':'')+'">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre><div class="vz-console">'+esc(out.join('\n')||' ')+'</div></div>'},
+  cap:i=>S[i].cap};
+};
+/* Filter builder: choose WHERE / LIKE / city / ORDER BY / LIMIT; see the SQL with ? placeholders, the args, and the rows that match. */
+Viz.sqlfilter=(c,o,ctl)=>{
+ const R=o.rows,C=o.cols,st={min:'',like:'',city:'',order:'',limit:''};
+ const opts={min:['','50','70','85'],like:['','A','S','H'],city:['','Okara','Lahore','Karachi'],order:['','marks DESC','name ASC'],limit:['','3']};
+ const lab={min:'marks ≥',like:'name starts with',city:'city =',order:'ORDER BY',limit:'LIMIT'};
+ const w=el('div','vsf');c.appendChild(w);
+ function run(){let r=R.slice();const where=[],args=[];
+  if(st.min){where.push('marks >= ?');args.push(st.min);r=r.filter(x=>x[4]>=+st.min)}
+  if(st.like){where.push('name LIKE ?');args.push(st.like+'%');r=r.filter(x=>x[1].toLowerCase().startsWith(st.like.toLowerCase()))}
+  if(st.city){where.push('city = ?');args.push(st.city);r=r.filter(x=>x[3]===st.city)}
+  if(st.order==='marks DESC')r.sort((a,b)=>b[4]-a[4]);else if(st.order==='name ASC')r.sort((a,b)=>a[1].localeCompare(b[1]));
+  if(st.limit)r=r.slice(0,+st.limit);
+  const sql='SELECT * FROM students'+(where.length?'\nWHERE '+where.join(' AND '):'')+(st.order?'\nORDER BY '+st.order:'')+(st.limit?'\nLIMIT '+st.limit:'');
+  return{r,sql,args}}
+ function render(){const q=run();
+  w.innerHTML='<div class="vsf-ctl">'+Object.keys(opts).map(k=>'<label><span>'+lab[k]+'</span><select data-k="'+k+'">'+opts[k].map(v=>'<option value="'+v+'"'+(st[k]===v?' selected':'')+'>'+(v||'—')+'</option>').join('')+'</select></label>').join('')+'</div><pre class="val-code vsf-sql">'+q.sql.split('\n').map(l=>'<span class="ln">'+hlLine(l,'sql')+'</span>').join('')+'</pre><div class="vsf-args">args = arrayOf('+q.args.map(a=>'"'+esc(a)+'"').join(', ')+')</div><table class="vsf-t"><thead><tr>'+C.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+(q.r.length?q.r.map(x=>'<tr>'+x.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+C.length+'" class="vsf-none">no rows match</td></tr>')+'</tbody></table><div class="vsf-n">'+q.r.length+' of '+R.length+' rows</div>';
+  $$('[data-k]',w).forEach(s=>s.addEventListener('change',()=>{ctl.pause();st[s.dataset.k]=s.value;render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){Object.assign(st,{min:'',like:'',city:'',order:'',limit:''},S[i].set);render()},cap:i=>S[i].cap};
+};
+/* SQL injection: the same login typed two ways — glued into the SQL string, or passed as ? arguments. */
+Viz.injection=(c,o,ctl)=>{
+ const U=o.users,st={u:'ali',p:'1234',safe:false};const w=el('div','vij');c.appendChild(w);
+ const norm=s=>s.replace(/\s+/g,' ').toLowerCase();
+ function evalQ(){
+  if(st.safe){const m=U.find(x=>x[0]===st.u&&x[1]===st.p);return{sql:"SELECT * FROM USERS WHERE USERNAME = ? AND PASSWORD = ?",args:'arrayOf("'+st.u+'", "'+st.p+'")',ok:!!m,who:m&&m[0],why:m?'Exactly one row matches.':'No row has this username AND this password.'}}
+  const sql="SELECT * FROM USERS WHERE USERNAME = '"+st.u+"' AND PASSWORD = '"+st.p+"'";
+  const inj=/' or '1'='1/.test(norm(st.p))||/' or '1'='1/.test(norm(st.u))||/'\s*--/.test(st.u);
+  if(inj)return{sql,args:'null',ok:true,who:U[0][0],why:'The typed quote ENDED the text and OR \'1\'=\'1\' is always true → every row matches. Logged in as the first user without the password!'};
+  if(/'/.test(st.u+st.p))return{sql,args:'null',ok:null,why:'A stray quote breaks the SQL → SQLiteException, the app crashes.'};
+  const m=U.find(x=>x[0]===st.u&&x[1]===st.p);return{sql,args:'null',ok:!!m,who:m&&m[0],why:m?'Exactly one row matches.':'No row matches.'}}
+ function render(){const q=evalQ();
+  w.innerHTML='<div class="vij-form"><label>Username<input data-f="u" value="'+esc(st.u)+'" autocomplete="off" spellcheck="false"></label><label>Password<input data-f="p" value="'+esc(st.p)+'" autocomplete="off" spellcheck="false"></label><div class="vpd-acts"><button type="button" class="vz-btn" data-m="0" aria-pressed="'+!st.safe+'">✗ Glued into the string</button><button type="button" class="vz-btn" data-m="1" aria-pressed="'+st.safe+'">✓ ? placeholders</button></div></div><pre class="val-code vij-sql">'+hlLine(q.sql,'sql')+'</pre><div class="vij-args">args = '+esc(q.args)+'</div><div class="vij-res '+(q.ok===null?'err':q.ok?(st.safe?'ok':'bad'):'no')+'"><b>'+(q.ok===null?'💥 Crash':q.ok?'🔓 Logged in as '+esc(q.who):'🔒 Login refused')+'</b><small>'+esc(q.why)+'</small></div>';
+  $$('[data-f]',w).forEach(i=>i.addEventListener('input',()=>{st[i.dataset.f]=i.value;const r=evalQ();const sq=$('.vij-sql',w);sq.innerHTML=hlLine(r.sql,'sql');$('.vij-args',w).textContent='args = '+r.args;const rs=$('.vij-res',w);rs.className='vij-res '+(r.ok===null?'err':r.ok?(st.safe?'ok':'bad'):'no');rs.innerHTML='<b>'+(r.ok===null?'💥 Crash':r.ok?'🔓 Logged in as '+esc(r.who):'🔒 Login refused')+'</b><small>'+esc(r.why)+'</small>'}));
+  $$('[data-m]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();st.safe=b.dataset.m==='1';render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'sim',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
+};
 
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -843,7 +897,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');
