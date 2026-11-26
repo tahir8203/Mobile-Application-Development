@@ -39,9 +39,79 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=11` everywhere, and the service worker cache is now `mad-v11`.
+- **Cache:** `?v=12` everywhere, and the service worker cache is now `mad-v12`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 9: Activity Life Cycle & Splash Screen
+
+**Slides: 43 in total.** That is 39 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 9 android_lifecycle_lecture.html". The order follows it: Activity → life cycle (human-life analogy) → Facebook scenario → one slide per callback → reference table → the ActivityLifeCycleDemo project → splash screen → your SplashScreenDemo. Rotation and the modern splash were added.
+
+### What changed
+
+- **Compose removed** (the old ViewModel and splash examples used `setContent`). Every screen now uses ViewBinding.
+- **The lifecycle simulator was fixed and extended:**
+  - Its "Back" button wrongly destroyed the first screen. It is now "Back on the first screen (Android 12+)" → onPause, onStop only.
+  - A new "finish()" button shows the full destroy.
+  - Each callback slide shows its own part of the diagram.
+- **Two new live widgets:**
+  - **Rotation lab** (`rotatelab`): one counter kept three ways (a plain variable, the onSaveInstanceState Bundle, a ViewModel). The buttons are Rotate, Home → Kill the process → Return, and finish(), with the callbacks in a Logcat box. It shows that rotation keeps the Bundle and the ViewModel, process death keeps only the Bundle, and finish() keeps nothing.
+  - **Splash timeline** (`splashrace`): what the user sees over 4 seconds with the old 3-second SplashActivity (two splashes on Android 12+) vs the SplashScreen API.
+- **New slides:**
+  - onStart vs onResume and onPause vs onStop
+  - the demo layout
+  - watching the callbacks in Logcat
+  - forgetting `super`
+  - Android 12 Back behaviour
+  - onSaveInstanceState counter, ViewModel counter, lifecycle-aware component
+  - "Android kills processes, not Activities"
+  - "Since Android 12, every app has a splash"
+  - the modern splash in three steps (library and theme, manifest, `installSplashScreen()`)
+  - five quizzes
+- **39 defined terms.** Examples: callback, override, super, savedInstanceState, Bundle, Logcat, focus, multi-window, configuration change, process death, ViewModel, viewModels(), root activity, cold/warm start, SplashScreen API, installSplashScreen(), setKeepOnScreenCondition, Handler, Looper, postDelayed. 27 were added to the portal glossary, which now has 394 terms.
+- **Cache:** `?v=12` / `mad-v12`.
+- **Course Outline:** all 5 Lecture 9 topics land on matching slides; "Creating a splash screen" now opens the modern step 1.
+
+### Verification
+
+All six Kotlin code slides were taken straight from the deck and compiled together with Kotlin 2.2.21 against stand-in Android classes. The order in which Android calls the callbacks was then simulated.
+
+- **Demo:** open → 1, 2, 3; Home → 4, 5; reopen → 6, 2, 3; rotate → 4, 5, 7, 1, 2, 3. This is exactly the Logcat output on the slide.
+- **Counter:** onSaveInstanceState: 3 taps → rotate → 3. ViewModel: 3 → rotate → 3; finish() + open → 0.
+- **Lifecycle observer:** open → "start location updates"; Home → "stop location updates".
+- **Old splash:** at 2.999 s still on the splash; at 3 s MainActivity starts and SplashActivity finishes.
+- **Modern splash:** `installSplashScreen()` runs before `super.onCreate`; after loading, the keep-on-screen condition is false.
+- **XML:** the demo layout, themes.xml and the manifest are well-formed.
+- **Browser:** no script errors; all 43 slides have no sideways scrolling at 360 px; both widgets tested by script and by hand; Lecture 8's widgets re-checked.
+- **Facts checked on developer.android.com (26 Nov 2026):**
+  - Activity lifecycle guide:
+    - "don't use onPause to save application or user data … perform heavy-load shutdown operations during onStop"
+    - in multi-window, a paused activity can be fully visible
+    - "The system never kills an activity directly … it kills the process"
+  - Android 12 behaviour changes: "Root launcher activities are no longer finished on Back press".
+  - Splash screens:
+    - since Android 12 the system splash shows on cold and warm starts for all apps
+    - custom splash screens should migrate to the SplashScreen API
+    - call `installSplashScreen()` before `super.onCreate()`
+    - the compat library works from API 23
+  - core-splashscreen stable is 1.2.0 (Core releases page).
+  - The Activity releases page: `by viewModels()` moved from activity-ktx into activity (1.9.0), so no extra dependency is needed.
+
+### Corrections to your notes
+
+1. **Back = onDestroy:** this is no longer true on the first screen on Android 12+, where Back only stops it, like Home. The simulator, a compare slide and a quiz cover this.
+2. **"onPause … save draft data" and "Android may kill your activity after this":** Google says not to save data in onPause; save in onStop. Since Android 3.0, visible (paused) apps are rarely killed; stopped ones are.
+3. **"User swipes away app from recents → onDestroy":** usually the process is just killed and no callback runs, so never rely on onDestroy to save data.
+4. **Phone call → onPause only:** a full-screen incoming call hides the app, so onStop follows. A small heads-up call notification does not pause it.
+5. **The SplashActivity with a 3-second Handler:**
+   - On Android 12+ it shows the system splash and then a second one, and always wastes about 3 seconds.
+   - Google asks apps to migrate to the SplashScreen API. The old code is kept as "the old way" (still worth knowing for exams); the modern version is taught in three steps.
+6. **Manifest `package="…"`:** since AGP 8 the package name is the `namespace` in build.gradle.kts (as corrected in Lecture 3).
+7. **"Skipping super.onCreate causes a RuntimeException":** the exact error is `SuperNotCalledException` ("did not call through to super.onCreate()").
+8. **Min SDK API 21:** the course template uses API 24. The splash compat library needs API 23+.
+9. **Small fixes:**
+   - `SPLASH_DELAY` → `splashDelay`, because Kotlin style uses camelCase for a private val.
+   - Hard-coded colours: the slides now note that they belong in colors.xml so dark mode works.
 
 ## Lecture 8: Android Data Storage
 

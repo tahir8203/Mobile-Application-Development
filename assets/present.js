@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=11';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=12';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -662,6 +662,41 @@ Viz.storechooser=(c,o,ctl)=>{
  const S=o.script;
  return{n:()=>S.length,note:'',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap+' → **'+pick()[1]+'**'};
 };
+/* Rotation lab: one counter kept three ways (plain Activity variable, onSaveInstanceState Bundle, ViewModel) through rotate, process death and finish(). The callbacks appear in a Logcat box. */
+Viz.rotatelab=(c,o,ctl)=>{
+ let st,log;
+ const w=el('div','vrl');c.appendChild(w);
+ const L=(...a)=>a.forEach(x=>log.push(x));
+ const A={
+  reset(){st={v:0,b:0,m:0,saved:0,land:false,gone:false,bg:false,spin:false};log=[]},
+  open(){L('onCreate(savedInstanceState = null)','onStart()','onResume()')},
+  plus(v){if(st.gone||st.bg)return;const n=v||1;st.v+=n;st.b+=n;st.m+=n;L('tap + → count = '+st.m)},
+  rotate(){if(st.gone||st.bg)return;st.saved=st.b;L('— rotate —','onPause()','onStop()','onSaveInstanceState(outState)  // count saved','onDestroy()  // old object gone','onCreate(savedInstanceState ≠ null)','onStart()','onResume()');st.land=!st.land;st.v=0;st.b=st.saved;st.spin=true},
+  home(){if(st.gone||st.bg)return;st.saved=st.b;st.bg=true;L('— Home —','onPause()','onStop()','onSaveInstanceState(outState)')},
+  kill(){if(!st.bg)return;L('— system needs memory: process killed —','(no onDestroy is called!)');st.v=0;st.m=0;st.b=0;st.killed=true},
+  back(){if(!st.bg)return;st.bg=false;if(st.killed){st.b=st.saved;st.killed=false;L('— user returns —','onCreate(savedInstanceState ≠ null)','onStart()','onResume()')}else L('— user returns —','onRestart()','onStart()','onResume()')},
+  finish(){if(st.gone||st.bg)return;st.gone=true;L('— finish() —','onPause()','onStop()','onDestroy()  // nothing is saved');st.v=0;st.b=0;st.m=0},
+  reopen(){if(!st.gone)return;st.gone=false;A.open()}};
+ const cell=(icon,name,val,note)=>'<div class="vrl-cell"><span class="vrl-ic">'+icon+'</span><small>'+esc(name)+'</small><b>'+val+'</b><em>'+esc(note)+'</em></div>';
+ function render(){
+  const body=st.gone?'<div class="w-text" style="color:#64748b">Activity finished</div><button type="button" class="w-btn" data-x="reopen">Open again</button>':st.bg?'<div class="w-text" style="color:#64748b">🏠 App in the background</div>'+(st.killed?'':'<button type="button" class="w-btn" data-x="kill">Kill the process</button>')+'<button type="button" class="w-btn" data-x="back">Return to the app</button>':'<div class="w-text vrl-big">'+st.b+'</div><button type="button" class="w-btn" data-x="plus">+ 1</button>';
+  w.innerHTML='<div class="vrl-ph'+(st.land?' land':'')+(st.spin&&!reduceMotion()?' spin':'')+'">'+phone('CounterApp · '+(st.land?'landscape':'portrait'),body)+'</div><div class="vrl-side"><div class="vrl-cells">'+cell('📦','var count in the Activity',st.gone||st.bg&&st.killed?0:st.v,'lost on rotation')+cell('💾','onSaveInstanceState Bundle',st.gone?0:(st.bg?st.saved:st.b),'survives rotation and process death')+cell('🧠','ViewModel',st.gone||st.killed?0:st.m,'survives rotation')+'</div><div class="vz-console vrl-log">'+esc(log.slice(-8).join('\n'))+'</div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="rotate">🔄 Rotate</button><button type="button" class="vz-btn" data-x="home">🏠 Home</button><button type="button" class="vz-btn" data-x="finish">✖ finish()</button></div></div>';
+  st.spin=false;
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'',draw(i){A.reset();A.open();for(let k=0;k<=i;k++)if(S[k].a)A[S[k].a](S[k].v);render()},cap:i=>S[i].cap};
+};
+/* Splash race: what the user sees over time with the old 3-second SplashActivity vs the SplashScreen API. */
+Viz.splashrace=(c,o,ctl)=>{
+ const lanes=o.lanes,max=o.max||4;
+ const w=el('div','vsr');c.appendChild(w);
+ function at(l,t){let cur=l.segs[0];for(const s of l.segs)if(t>=s[0])cur=s;return cur}
+ function render(t){
+  w.innerHTML=lanes.map(l=>{const cur=at(l,t);
+   return '<div class="vsr-lane"><div class="vsr-h"><b>'+esc(l.label)+'</b><small>'+esc(l.sub||'')+'</small></div><div class="vsr-row"><div class="vsr-mini" style="background:'+cur[3]+'"><span>'+cur[2]+'</span><small>'+esc(cur[1])+'</small></div><div class="vsr-bar">'+l.segs.map((s,k)=>{const e=k+1<l.segs.length?l.segs[k+1][0]:max;return '<i style="left:'+(s[0]/max*100)+'%;width:'+((e-s[0])/max*100)+'%;background:'+s[3]+';opacity:'+(t>=s[0]?1:.25)+'" title="'+esc(s[1])+'"><span>'+esc(s[1])+'</span></i>'}).join('')+'<em class="vsr-cur" style="left:'+(Math.min(t,max)/max*100)+'%"></em></div></div></div>'}).join('')+'<div class="vsr-t">t = '+t.toFixed(1)+' s</div>'}
+ const S=o.script;
+ return{n:()=>S.length,note:'',draw(i){render(S[i].t)},cap:i=>S[i].cap};
+};
 
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -769,7 +804,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');
