@@ -4,14 +4,17 @@
 'use strict';
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const md=t=>esc(t).replace(/&lt;(\/?)em&gt;/g,'<$1em>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
-const plain=t=>String(t==null?'':t).replace(/<\/?em>/g,'');
+/* [[term]] or [[term|shown text]] becomes a tooltip button; definitions come from deck.terms or the course glossary */
+const TIPRX=/\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g;
+const tipBtn=(t,l)=>'<button type="button" class="tip" data-term="'+t+'" aria-expanded="false">'+l+'</button>';
+const md=t=>esc(t).replace(/&lt;(\/?)em&gt;/g,'<$1em>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(TIPRX,(m,a,b)=>tipBtn(a,b||a));
+const plain=t=>String(t==null?'':t).replace(/<\/?em>/g,'').replace(TIPRX,(m,a,b)=>b||a);
 const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e};
 const pad=n=>String(n).padStart(2,'0');
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 /* ---------- storage (separate from the original course key) ---------- */
-const Store={key:'madPresentationV1',d:{last:null,slide:{},seen:{},quiz:{},tasks:{},total:{},pt:'dark'},
+const Store={key:'madPresentationV1',d:{last:null,slide:{},seen:{},quiz:{},tasks:{},total:{},pt:'dark',rev:{}},
  load(){try{const r=JSON.parse(localStorage.getItem(this.key)||'null');if(r&&typeof r==='object')for(const k in this.d){if(r[k]!==undefined&&typeof r[k]===typeof this.d[k])this.d[k]=r[k]}}catch(e){}},
  save(){try{localStorage.setItem(this.key,JSON.stringify(this.d))}catch(e){}},
  obj(k,l){return this.d[k][l]||(this.d[k][l]={})}};
@@ -19,11 +22,30 @@ Store.load();
 
 /* ---------- deck loading ---------- */
 const Decks={},waiting={};
-window.MAD={deck(n,d){Decks[n]=d;(waiting[n]||[]).forEach(w=>w[0](d));delete waiting[n]}};
+const TERMS={};
+window.MAD={deck(n,d){Decks[n]=d;if(d.terms)Object.keys(d.terms).forEach(k=>{TERMS[k.toLowerCase()]=[k,d.terms[k]]});(waiting[n]||[]).forEach(w=>w[0](d));delete waiting[n]}};
+function termDef(t){const k=String(t).toLowerCase();if(TERMS[k])return TERMS[k][1];
+ try{if(typeof GLOSSARY!=='undefined'){const g=GLOSSARY.find(x=>x[0].toLowerCase()===k);if(g)return g[1]}}catch(e){}return''}
+/* tooltip: opens on hover (mouse), on focus (keyboard) and on tap (touch); closes on tap outside or Esc */
+const Tip={pop:null,cur:null,pinned:false,
+ make(){if(this.pop)return this.pop;const p=el('div','tip-pop');p.id='mad-tip';p.setAttribute('role','tooltip');p.hidden=true;document.body.appendChild(p);return this.pop=p},
+ show(b,pin){const p=this.make();if(this.cur&&this.cur!==b)this.cur.setAttribute('aria-expanded','false');this.cur=b;this.pinned=!!pin;
+  const t=b.dataset.term,d=termDef(t);p.innerHTML='<b>'+esc(t)+'</b><span>'+md(String(d||'See the glossary at the end of the lecture.').replace(TIPRX,(m,a,c)=>c||a))+'</span>';
+  p.hidden=false;b.setAttribute('aria-expanded','true');b.setAttribute('aria-describedby','mad-tip');
+  const r=b.getBoundingClientRect(),W=Math.min(320,innerWidth-16);p.style.width=W+'px';const h=p.offsetHeight;
+  p.style.left=clamp(r.left+r.width/2-W/2,8,innerWidth-W-8)+'px';p.style.top=(r.bottom+8+h>innerHeight&&r.top-8-h>0?r.top-8-h:r.bottom+8)+'px'},
+ hide(){if(!this.pop||this.pop.hidden)return false;this.pop.hidden=true;if(this.cur){this.cur.setAttribute('aria-expanded','false');this.cur.removeAttribute('aria-describedby')}this.cur=null;this.pinned=false;return true}};
+document.addEventListener('mouseover',e=>{const b=e.target.closest&&e.target.closest('.tip');if(b&&b!==Tip.cur)Tip.show(b,false)});
+document.addEventListener('mouseout',e=>{const b=e.target.closest&&e.target.closest('.tip');if(b&&b===Tip.cur&&!Tip.pinned&&!(e.relatedTarget&&b.contains(e.relatedTarget)))Tip.hide()});
+document.addEventListener('focusin',e=>{const b=e.target.closest&&e.target.closest('.tip');if(b)Tip.show(b,false)});
+document.addEventListener('focusout',e=>{const b=e.target.closest&&e.target.closest('.tip');if(b&&!Tip.pinned)Tip.hide()});
+document.addEventListener('click',e=>{const b=e.target.closest('.tip');if(b){e.preventDefault();e.stopPropagation();if(Tip.cur===b&&Tip.pinned)Tip.hide();else Tip.show(b,true);return}if(!e.target.closest('.tip-pop'))Tip.hide()},true);
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&Tip.hide()){e.preventDefault();e.stopImmediatePropagation()}},true);
+addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=2';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=3';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -33,7 +55,8 @@ function compose(n,d){
   {kind:'objectives',title:'By the end of this lecture you can…',points:d.objectives,notes:'Read the objectives aloud. Return to this slide at the end and ask students to tick off each one.'}];
  if(d.bloom)s.push({kind:'bloom',title:'Learning outcomes: Head, Heart, Hand',bloom:d.bloom,notes:'Bloom’s Taxonomy in three domains. Head = what students will know (cognitive). Heart = attitudes and values (affective). Hand = what they will be able to do with their hands in Android Studio (psychomotor).'});
  const body=d.slides.slice(),tn=window.MAD_PORTAL&&window.MAD_PORTAL.thenNow&&window.MAD_PORTAL.thenNow[n];
- if(tn){const at=body.findIndex(x=>x.kind==='summary');body.splice(at<0?body.length:at,0,{kind:'update',title:'In 2026: what changed',points:tn,notes:'The course outline teaches the classic APIs. This slide shows what professional teams use today for the same job. Students should be able to read both styles.'})}
+ if(d.rev){const R=Store.d.rev;if(R[n]!==d.rev){if(R[n]!==undefined||Store.d.seen[n]){['seen','quiz','tasks'].forEach(k=>delete Store.d[k][n]);delete Store.d.slide[n]}R[n]=d.rev;Store.save()}}
+ if(tn&&d.update!==false){const at=body.findIndex(x=>x.kind==='summary');body.splice(at<0?body.length:at,0,{kind:'update',title:'In 2026: what changed',points:tn,notes:'The course outline teaches the classic APIs. This slide shows what professional teams use today for the same job. Students should be able to read both styles.'})}
  const all=s.concat(body);Store.d.total[n]=all.length;return all;
 }
 
@@ -89,13 +112,14 @@ function mountViz(host,o){
  const ctl={i:0,timer:null,box,canvas,opts:o};
  const w=make(canvas,o,ctl);ctl.w=w;
  const cap=el('div','vz-cap');cap.setAttribute('aria-live','polite');
- const bar=el('div','vz-bar','<button type="button" class="play">▶ Play</button><button type="button" data-a="back">‹ Back</button><button type="button" data-a="step">Step ›</button><button type="button" data-a="reset">↺ Reset</button><span class="cnt"></span>');
+ const bar=el('div','vz-bar','<button type="button" class="play">▶ Play</button><button type="button" data-a="back">‹ Back</button><button type="button" data-a="step">Step ›</button><button type="button" data-a="reset">↺ Reset</button><label class="vz-speed"><span>Speed</span><select aria-label="Animation speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label><span class="cnt"></span>');
+ ctl.factor=1;$('.vz-speed select',bar).addEventListener('change',e=>{ctl.factor=+e.target.value||1;if(ctl.timer){ctl.pause();ctl.play()}});
  box.appendChild(cap);box.appendChild(bar);
  const note=o.note||NOTE['note' in w?w.note:'sim'];if(note)box.appendChild(el('div','vz-sim',esc(note)));
  const playBtn=$('.play',bar),cnt=$('.cnt',bar);
  ctl.go=i=>{const n=w.n();ctl.i=clamp(i,0,n-1);w.draw(ctl.i);const c=w.cap?w.cap(ctl.i):(o.caps||[])[ctl.i];cap.innerHTML=md(c||'');cnt.textContent=(ctl.i+1)+' / '+n};
  ctl.pause=()=>{clearInterval(ctl.timer);ctl.timer=null;playBtn.textContent='▶ Play'};
- ctl.play=()=>{if(ctl.timer){ctl.pause();return}if(ctl.i>=w.n()-1)ctl.go(0);playBtn.textContent='⏸ Pause';ctl.timer=setInterval(()=>{if(ctl.i>=w.n()-1){ctl.pause();return}ctl.go(ctl.i+1)},o.speed||1700)};
+ ctl.play=()=>{if(ctl.timer){ctl.pause();return}if(ctl.i>=w.n()-1)ctl.go(0);playBtn.textContent='⏸ Pause';ctl.timer=setInterval(()=>{if(ctl.i>=w.n()-1){ctl.pause();return}ctl.go(ctl.i+1)},(o.speed||1700)/(ctl.factor||1))};
  ctl.step=()=>{ctl.pause();ctl.go(ctl.i+1)};ctl.back=()=>{ctl.pause();ctl.go(ctl.i-1)};ctl.reset=()=>{ctl.pause();if(w.reset)w.reset();ctl.go(0)};
  ctl.destroy=()=>{ctl.pause();if(w.destroy)w.destroy()};
  playBtn.addEventListener('click',ctl.play);
@@ -374,6 +398,93 @@ Viz.notify=(c,o)=>{
   cap:i=>['Create a **channel** once. Users can control each channel (sound, importance) in Settings.','**Build** the notification: icon, title, text and what happens on tap.','`notify()` shows it in the status bar. On Android 13+ the app must hold **POST_NOTIFICATIONS**.','The user taps it → the **PendingIntent** opens a screen in your app.'][i]};
 };
 
+/* ---------- v2.1 widgets (Kotlin + XML upgrade) ---------- */
+const reduceMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* Android version timeline: tap a dot or step through; a card explains what changed for app developers */
+Viz.timeline=(c,o,ctl)=>{
+ const E=o.events,w=el('div','vtl');
+ const track=el('div','vtl-track');track.setAttribute('role','list');track.setAttribute('aria-label',o.label||'Timeline');
+ const B=E.map((e,k)=>{const li=el('div','vtl-item');li.setAttribute('role','listitem');const b=el('button','vtl-node','<i aria-hidden="true"></i><b>'+esc(e.y)+'</b><span>'+esc(e.short||plain(e.name))+'</span>');b.type='button';b.setAttribute('aria-label',e.y+': '+plain(e.name));
+  b.addEventListener('click',()=>{ctl.pause();ctl.go(k)});li.appendChild(b);track.appendChild(li);return b});
+ const card=el('div','vtl-card');w.appendChild(track);w.appendChild(card);c.appendChild(w);
+ return{n:()=>E.length,note:'',
+  draw(i){B.forEach((b,k)=>{b.classList.toggle('on',k<=i);b.classList.toggle('cur',k===i);if(k===i)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current')});
+   const e=E[i];card.innerHTML='<div class="vtl-head"><b>'+md(e.name)+'</b>'+(e.api?'<span class="vtl-api">API '+esc(e.api)+'</span>':'')+'<span class="vtl-year">'+esc(e.y)+'</span></div>'+(e.code?'<p class="vtl-cn">'+md(e.code)+'</p>':'')+'<p>'+md(e.what)+'</p>'+(e.dev?'<p class="vtl-dev"><b>For app developers:</b> '+md(e.dev)+'</p>':'');
+   const b=B[i],x=b.parentNode.offsetLeft-track.clientWidth/2+b.offsetWidth/2;if(track.scrollTo)track.scrollTo({left:Math.max(0,x),behavior:reduceMotion()?'auto':'smooth'});else track.scrollLeft=x},
+  cap:i=>'**'+(i+1)+' / '+E.length+'** · '+E[i].y+' · '+plain(E[i].name)};
+};
+/* code tracer: highlighted line + variables box + console. Steps are hand-authored states of a program
+   whose output was checked with the real Kotlin compiler. Each step: {l:line, v:{var:value|null}, o:'printed line', n:'narration'} */
+Viz.tracer=(c,o,ctl)=>{
+ const w=el('div','vtc');c.appendChild(w);let S=[],L=[],code,vars,out,inp;
+ function build(){
+  const val=inp?+inp.value:undefined,src=o.codeFor?o.codeFor(val):o.code,steps=o.gen?o.gen(val):o.steps;
+  let cur={};S=steps.map(s=>{const prev=cur;cur=Object.assign({},cur);Object.keys(s.v||{}).forEach(k=>{if(s.v[k]===null)delete cur[k];else cur[k]=s.v[k]});
+   const ch=Object.keys(cur).filter(k=>prev[k]!==cur[k]);return Object.assign({},s,{vars:cur,changed:ch})});
+  code.innerHTML=src.split('\n').map((l,k)=>'<span class="ln" data-n="'+(k+1)+'">'+(hlLine(l,'kotlin')||' ')+'</span>').join('');L=$$('.ln',code);
+ }
+ if(o.input){const r=el('label','vtc-in','<span>'+esc(o.input.label)+' =</span><input type="range" min="'+o.input.min+'" max="'+o.input.max+'" value="'+o.input.value+'"><b class="vz-mono"></b>');w.appendChild(r);inp=$('input',r);const show=$('b',r);
+  inp.setAttribute('aria-label','Set '+o.input.label);show.textContent=inp.value;inp.addEventListener('input',()=>{show.textContent=inp.value;ctl.pause();build();ctl.go(0)})}
+ const grid=el('div','vtc-grid');w.appendChild(grid);
+ code=el('pre','vtc-code');code.tabIndex=0;code.setAttribute('aria-label','Program code');grid.appendChild(code);
+ const side=el('div','vtc-side','<div><h4>Variables</h4><table class="vtc-vars"><tbody></tbody></table></div><div><h4>Console</h4><div class="vz-console" aria-label="Console output"></div></div>');grid.appendChild(side);
+ vars=$('tbody',side);out=$('.vz-console',side);build();
+ return{n:()=>S.length,note:'logic',
+  draw(i){const s=S[i];L.forEach((x,k)=>x.classList.toggle('on',k+1===s.l));const ln=L[s.l-1];if(ln)code.scrollTop=Math.max(0,ln.offsetTop-code.clientHeight/2);
+   const keys=Object.keys(s.vars);vars.innerHTML=keys.length?keys.map(k=>'<tr'+(s.changed.includes(k)?' class="ch"':'')+'><th>'+esc(k)+'</th><td>'+esc(s.vars[k])+'</td></tr>').join(''):'<tr><td class="mu">(none yet)</td></tr>';
+   out.textContent=S.slice(0,i+1).filter(x=>x.o!=null).map(x=>x.o).join('\n')},
+  cap:i=>'Line '+S[i].l+': '+(S[i].n||'')};
+};
+/* null safety: toggle the value between a name and null and watch each operator */
+Viz.nullsafe=(c,o,ctl)=>{
+ let v=o.value||'Ali';const w=el('div','vns');
+ const tg=el('div','vns-toggle','<span class="vz-mono">var name: String? =</span><button type="button" data-v="1" aria-pressed="true">"'+esc(v)+'"</button><button type="button" data-v="0" aria-pressed="false">null</button>');
+ const R=[{c:'name.length',r:()=>['bad','✗ Does not compile'],e:'The compiler refuses: name might be null.'},
+  {c:'name?.length',r:x=>x?['ok',String(x.length)]:['warn','null'],e:'Safe call: if name is null, the whole thing is null instead of crashing.'},
+  {c:'name ?: "Guest"',r:x=>x?['ok',x]:['ok','Guest'],e:'Elvis operator: use the value on the left, or the default on the right when it is null.'},
+  {c:'name?.let { println("Hello, $it") }',r:x=>x?['ok','prints Hello, '+x]:['warn','(block skipped)'],e:'let runs the block only when name is not null. Inside, it is the name.'},
+  {c:'name!!.length',r:x=>x?['ok',String(x.length)]:['bad','💥 NullPointerException: app crashes'],e:'!! means “trust me, it is not null”. If you are wrong, the app crashes.'}];
+ const tb=el('div','vns-rows');const rows=R.map(r=>{const d=el('div','vns-row','<code>'+esc(r.c)+'</code><b></b>');tb.appendChild(d);return d});
+ w.appendChild(tg);w.appendChild(tb);c.appendChild(w);
+ $$('button',tg).forEach(b=>b.addEventListener('click',()=>{v=b.dataset.v==='1'?(o.value||'Ali'):null;$$('button',tg).forEach(x=>x.setAttribute('aria-pressed',x===b));ctl.go(ctl.i)}));
+ return{n:()=>R.length,note:'logic',
+  draw(i){rows.forEach((d,k)=>{const [cls,t]=R[k].r(v);const b=$('b',d);d.classList.toggle('on',k<=i);d.classList.toggle('cur',k===i);b.className=k<=i?cls:'';b.textContent=k<=i?t:'?'})},
+  cap:i=>'`'+R[i].c+'` with name = '+(v?'"'+v+'"':'null')+' → '+R[i].e};
+};
+/* range explorer on a 0..20 number line */
+Viz.range=(c,o,ctl)=>{
+ const w=el('div','vrg');let vals=[];
+ const f=el('div','vrg-form','<label>start<input type="number" min="0" max="20" value="'+(o.a!=null?o.a:1)+'"></label><label>kind<select><option value="..">..</option><option value="until">until</option><option value="downTo">downTo</option></select></label><label>end<input type="number" min="0" max="20" value="'+(o.b!=null?o.b:10)+'"></label><label>step<select>'+[1,2,3,4,5].map(n=>'<option>'+n+'</option>').join('')+'</select></label>');
+ const [ia,ib]=$$('input',f),[sk,ss]=$$('select',f);sk.value=o.kind||'..';ss.value=String(o.step||1);
+ const code=el('div','vrg-code vz-mono');const line=el('div','vrg-line');line.innerHTML=Array.from({length:21},(_,k)=>'<span data-k="'+k+'"><i></i><small>'+k+'</small></span>').join('');
+ const outp=el('div','vz-console');outp.setAttribute('aria-label','Printed numbers');
+ w.appendChild(f);w.appendChild(code);w.appendChild(line);w.appendChild(outp);c.appendChild(w);const D=$$('span',line);
+ function calc(){const a=clamp(Math.round(+ia.value||0),0,20),b=clamp(Math.round(+ib.value||0),0,20),s=+ss.value,k=sk.value;ia.value=a;ib.value=b;vals=[];
+  if(k==='downTo')for(let x=a;x>=b;x-=s)vals.push(x);else if(k==='until')for(let x=a;x<b;x+=s)vals.push(x);else for(let x=a;x<=b;x+=s)vals.push(x);
+  code.textContent='for (i in '+a+(k==='..'?'..':' '+k+' ')+b+(s>1?' step '+s:'')+') print("$i ")'}
+ [ia,ib,sk,ss].forEach(x=>x.addEventListener('change',()=>{ctl.pause();calc();ctl.go(0)}));calc();
+ return{n:()=>vals.length+1,note:'logic',
+  draw(i){D.forEach(d=>{const k=+d.dataset.k,j=vals.indexOf(k);d.classList.toggle('in',j>=0);d.classList.toggle('done',j>=0&&j<i-1);d.classList.toggle('cur',j>=0&&j===i-1)});outp.textContent=vals.slice(0,i).join(' ')},
+  cap:i=>!vals.length?'This range is **empty**, so the loop body never runs.':i===0?'The highlighted dots are the values this loop will visit ('+vals.length+' in total). Press Step.':'i = **'+vals[i-1]+'**'+(i===vals.length?' — that was the last value, so the loop ends.':'')};
+};
+/* filter -> map -> sum conveyor belt */
+Viz.conveyor=(c,o)=>{
+ const X=o.items,keep=o.keep,map=o.map;const S=[{t:'src'}];X.forEach((x,k)=>S.push({t:'f',k}));const K=X.filter(keep),M=K.map(map);
+ K.forEach((x,k)=>S.push({t:'m',k}));S.push({t:'sum'});
+ const w=el('div','vcv');const lane=(lbl)=>{const d=el('div','vcv-lane','<span class="vcv-l">'+lbl+'</span><div class="vcv-chips"></div>');w.appendChild(d);return $('.vcv-chips',d)};
+ const l0=lane(esc(o.name||'numbers')),l1=lane('<code>'+esc(o.f)+'</code>'),l2=lane('<code>'+esc(o.m)+'</code>'),l3=lane('<code>sum()</code>');c.appendChild(w);
+ const chip=(v,cls)=>'<i class="'+(cls||'')+'">'+esc(v)+'</i>';
+ return{n:()=>S.length,note:'logic',
+  draw(i){const s=S[i];const seen=S.slice(0,i+1);const fk=seen.filter(x=>x.t==='f').length,mk=seen.filter(x=>x.t==='m').length;
+   l0.innerHTML=X.map((x,k)=>chip(x,k<fk?'gone':(s.t==='src'||k===fk)?'cur':'')).join('');
+   l1.innerHTML=X.slice(0,fk).map((x,k)=>chip(x,(keep(x)?'ok':'drop')+(s.t==='f'&&k===s.k?' cur':''))).join('');
+   l2.innerHTML=M.slice(0,mk).map((x,k)=>chip(K[k]+' → '+x,s.t==='m'&&k===s.k?'ok cur':'ok')).join('');
+   l3.innerHTML=s.t==='sum'?chip(M.join(' + ')+' = '+M.reduce((a,b)=>a+b,0),'ok cur'):''},
+  cap:i=>{const s=S[i];if(s.t==='src')return'Start: '+(o.name||'numbers')+' = ['+X.join(', ')+']. Each item rides the belt one at a time.';
+   if(s.t==='f'){const x=X[s.k];return'filter: `it` is **'+x+'** → '+(keep(x)?'**true**, keep it':'**false**, drop it')}
+   if(s.t==='m')return'map: `it` is **'+K[s.k]+'** → becomes **'+M[s.k]+'**';return'sum() adds what is left: **'+M.reduce((a,b)=>a+b,0)+'**'}};
+};
+
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
  play:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>',
@@ -401,7 +512,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    ({prev:()=>this.go(this.i-1,-1),next:()=>this.go(this.i+1,1),overview:()=>this.toggleOverview(),notes:()=>this.toggleNotes(),full:()=>this.toggleFull(),theme:()=>this.toggleTheme(),watch:()=>this.toggleWatch(),close:()=>this.close(),presenter:()=>Presenter.openWindow()})[a]()});
   // swipe
   let sx=0,sy=0,ok=false;const st=$('.pz-stage',r);
-  st.addEventListener('touchstart',e=>{const t=e.touches[0];ok=!e.target.closest('.vz,.pz-code pre,input,button');sx=t.clientX;sy=t.clientY},{passive:true});
+  st.addEventListener('touchstart',e=>{const t=e.touches[0];ok=!e.target.closest('.vz,.pz-code pre,input,button,select,details');sx=t.clientX;sy=t.clientY},{passive:true});
   st.addEventListener('touchend',e=>{if(!ok)return;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.4)this.go(this.i+(dx<0?1:-1),dx<0?1:-1)},{passive:true});
   document.addEventListener('fullscreenchange',()=>$('[data-pa="full"]',r).setAttribute('aria-pressed',!!document.fullscreenElement));
   window.addEventListener('keydown',e=>this.key(e),true);
@@ -417,7 +528,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
  buildDots(){const d=$('.pz-dots',this.root);d.innerHTML=this.slides.length<=48?this.slides.map((s,k)=>'<button type="button" class="pz-dot" data-k="'+k+'" aria-label="Go to slide '+(k+1)+': '+esc(plain(s.title))+'"></button>').join(''):'';$$('.pz-dot',d).forEach(b=>b.addEventListener('click',()=>this.go(+b.dataset.k,+b.dataset.k>this.i?1:-1)))},
  go(i,dir){
   if(!this.slides.length)return;i=clamp(i,0,this.slides.length-1);if(i===this.i&&dir!==0)return;
-  if(this.ctl){this.ctl.destroy();this.ctl=null}this.code=null;
+  if(this.ctl){this.ctl.destroy();this.ctl=null}this.code=null;Tip.hide();
   this.i=i;const s=this.slides[i],stage=$('.pz-stage',this.root);
   const node=this.render(s,i);node.classList.add(dir<0?'enter-prev':'enter-next');stage.innerHTML='';stage.appendChild(node);this.fit(node);node.scrollTop=0;
   $('.pz-progress span',this.root).style.width=((i+1)/this.slides.length*100)+'%';
@@ -451,7 +562,12 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    if(k==='summary'){const q=this.score();if(q.total)copy.appendChild(el('p','pz-score','Quiz score for this lecture: <b>'+q.right+' / '+q.total+'</b>'));
     const done=typeof CourseApp!=='undefined'&&CourseApp.state.storage.completed[this.l];const b=el('button','pz-check',done?'✓ Lecture completed':'Mark lecture as complete');b.type='button';b.setAttribute('aria-pressed',!!done);
     b.addEventListener('click',()=>{if(typeof CourseApp!=='undefined'&&!CourseApp.state.storage.completed[this.l]){CourseApp.toggleComplete(this.l)}b.textContent='✓ Lecture completed';b.setAttribute('aria-pressed','true')});copy.appendChild(b)}
+   if(k==='summary'&&s.glossary)copy.appendChild(el('div','pz-gloss','<h3>Glossary <small>tap or hover a word</small></h3><div>'+s.glossary.map(t=>tipBtn(esc(t),esc(t))).join('')+'</div>'));
    n.appendChild(copy);return n}
+  if(k==='try'){n.classList.add('solo');copy.innerHTML=kick(s.tag||'Try it yourself')+'<h2>'+md(s.title)+'</h2>'+(s.text?'<p class="pz-text">'+md(s.text)+'</p>':'');
+   const g=el('div','pz-try');(s.items||[]).forEach((it,j)=>{const sec=el('section',null,'<h3><b>'+(j+1)+'</b>'+md(it.title)+'</h3><p>'+md(it.task)+'</p><details><summary>💡 Hint</summary><p>'+md(it.hint)+'</p></details><details class="ans"><summary>✅ Show answer</summary></details>');
+    const a=$('.ans',sec);a.appendChild(codeBlock(it.answer,it.lang||'kotlin','Try'+(j+1)+'.kt'));if(it.output)a.appendChild(el('div','pz-out',esc(it.output)));g.appendChild(sec)});
+   copy.appendChild(g);n.appendChild(copy);return n}
   if(k==='bloom'){n.classList.add('solo');copy.innerHTML=kick('Bloom’s Taxonomy')+'<h2>'+md(s.title)+'</h2>'+bloomHtml(s.bloom);n.appendChild(copy);return n}
   if(k==='quiz'){n.classList.add('solo');copy.innerHTML=kick(s.tag||'Quick check')+'<h2>'+md(s.q)+'</h2><div class="pz-quiz">'+s.o.map((o,j)=>'<button type="button" class="pz-opt" data-j="'+j+'"><b>'+'ABCD'[j]+'</b><span>'+md(o)+'</span></button>').join('')+'</div><p class="pz-feedback" aria-live="polite"></p>';
    const fb=$('.pz-feedback',copy),opts=$$('.pz-opt',copy),prevAns=Store.obj('quiz',this.l)[i];
@@ -475,7 +591,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');
