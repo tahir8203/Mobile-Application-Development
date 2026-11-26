@@ -39,9 +39,99 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=12` everywhere, and the service worker cache is now `mad-v12`.
+- **Cache:** `?v=13` everywhere, and the service worker cache is now `mad-v13`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 10: Lists, Location & Geocoder
+
+**Slides: 44 in total.** That is 40 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 10 ListView.html" (Complete Deep Lecture). Its four chapters are kept in order:
+1. ListView: ArrayAdapter, custom row, BaseAdapter + ViewHolder
+2. AutoCompleteTextView
+3. Location: GPS vs network, latitude/longitude, getting the location
+4. Progress and Geocoder
+
+RecyclerView is kept as the modern bridge.
+
+### What changed
+
+- **Compose removed** (the old "RecyclerView vs LazyColumn" slide). Every screen uses ViewBinding.
+- **The old deck taught RecyclerView first and the ListView only at the end.** The outline asks for ListView, so ListView is now taught in full and RecyclerView follows as "ListView → RecyclerView".
+- **Three new live widgets:**
+  - **getView lab** (`getviewlab`): scroll a 20-song ListView one row at a time. It counts getView(), inflate() and findViewById() calls, and two switches turn off "reuse convertView" and "ViewHolder (tag)". It shows the one spare row a real list inflates on the first scroll.
+  - **Latitude/longitude map** (`latlng`): an equator / prime-meridian grid with Karachi, Lahore, London, New York and Sydney. It shows the sign rules and the Kotlin values.
+  - **Location flow** (`locflow`): your three phone mock-ups (idle, progress, result), plus the permission dialog and the address, as one 5-step phone animation with the code for each step.
+- **New slides:**
+  - ArrayAdapter's three arguments
+  - BaseAdapter's four methods
+  - the forgotten notifyDataSetChanged() mistake
+  - the RecyclerView adapter and LayoutManager
+  - the two-provider table
+  - the manifest
+  - the fused-provider code
+  - your LocationManager code with fixes
+  - leaving updates running (mistake)
+  - ProgressBar in the layout
+  - Geocoder Address fields
+  - geocoding on the main thread (mistake)
+  - five quizzes and a "My Places" practical
+- **39 defined terms.** Examples: adapter, ArrayAdapter, BaseAdapter, getView(), convertView, inflate, ViewHolder, tag, recycling, LayoutManager, completionThreshold, GPS, network location, fused location provider, latitude, longitude, accuracy, Geocoder, reverse geocoding, ProgressBar, indeterminate, main thread, lifecycleScope. 25 were added to the portal glossary, which now has 419 terms.
+- **Cache:** `?v=13` / `mad-v13`.
+- **Course Outline:** all 7 Lecture 10 topics land on matching slides. "Introduction to ListView" and "Latitude, longitude…" were re-pointed.
+
+### Verification
+
+All 10 Kotlin code slides were taken straight from the deck and compiled together with Kotlin 2.2.21 against stand-in Android classes, then driven with simulated taps, scrolling, permission answers, location fixes and geocoder results.
+
+- **ArrayAdapter:** tap position 4 → "You selected: France"; long-press position 1 → "Deleted: China", and the list redraws with 7 rows.
+- **SongAdapter:**
+  - tap → "Now playing: Levitating — Dua Lipa"
+  - long-press → "Removed: Blinding Lights" (3 rows)
+  - a simulated ListView with 5 visible rows scrolling through 20 songs: 20 getView() calls, **6 inflations** (5 + 1 spare), the rest reused
+- **RecyclerView:** the 3 rows bind as shown and a tap on Sara shows the Toast. Without a LayoutManager nothing is laid out ("No layout manager attached; skipping layout").
+- **AutoComplete:**
+  - "Lon" → London (LHR), London (LGW)
+  - From = Karachi (KHI) with To empty → "Please enter destination city."
+  - From = To = Dubai (DXB) → "Departure and destination must be different."
+  - Karachi (KHI) → Dubai (DXB) → "Searching flights: Karachi (KHI) ➜ Dubai (DXB)"
+- **Fused location + Geocoder:**
+  - allow → spinner shown and hidden, then "Latitude: 24.8607", "Longitude: 67.0011 (± 12 m)", and the address via the listener (Android 16)
+  - deny → "Location permission denied."
+  - location off → "No location. Is location turned on?"
+  - Android 11 → the blocking lookup runs off the main thread
+  - Android 11 offline → the friendly message
+  - no geocoder → "Address lookup is not available on this phone."
+- **LocationManager:** a fix gives "Provider: GPS | ± 8.0 m" and removes the updates; Home → updates removed in onStop; a null provider → "unknown".
+- **ProgressBar:** shown, then hidden, and the button is re-enabled.
+- **XML:** the ListView layout, the custom row, the manifest and the ProgressBar are well-formed.
+- **Browser:** no script errors; all 44 slides have no sideways scrolling at 360 px; the three widgets were tested by script; Lecture 8 and 9 widgets re-checked.
+- **Facts checked on 26 Nov 2026:**
+  - Geocoder reference:
+    - getFromLocation(lat, lng, max) "was deprecated in API level 33. Use getFromLocation(…, GeocodeListener) instead to avoid blocking a thread waiting for results"
+    - "Use the isPresent() method to determine whether a Geocoder implementation exists"
+  - Location reference: getProvider() "may be null"; accuracy is a radius at the 68th percentile.
+  - Get the last known location guide: use the fused location provider; getCurrentLocation() "is the recommended way to get a fresh location … safer than … requestLocationUpdates()"; the location can be null.
+  - ProgressDialog reference: deprecated in API 26, "use a progress indicator like ProgressBar, which can be embedded in your app's UI".
+  - developers.google.com setup page: play-services-location 21.4.0.
+
+### Corrections to your notes
+
+1. **The GPS app does not compile:**
+   - `"📍 "${lines.joinToString("\n")}…` has one quote too many.
+   - `location.provider.uppercase()` fails because `getProvider()` can return null. Use `location.provider?.uppercase() ?: "unknown"`.
+2. **Geocoder on the main thread "throws NetworkOnMainThreadException":** the documented problem is that the old call blocks the thread while waiting (the app can freeze until "App isn't responding"). The method is deprecated in API 33; the slides use the listener version on 13+ and a background coroutine before that, and check `Geocoder.isPresent()` first.
+3. **`CoroutineScope(Dispatchers.IO).launch` in an Activity** keeps running after the Activity is destroyed. Use `lifecycleScope` (cancelled automatically).
+4. **removeUpdates only in onDestroy:** onDestroy may never run (Lecture 9). Remove updates in onStop, or use `getCurrentLocation()` for a single fix.
+5. **LocationManager vs fused provider:** Google recommends the fused location provider and `getCurrentLocation()` for a fresh location. Your LocationManager version is kept (it needs no Google library), with the fixes above.
+6. **`onRequestPermissionsResult` + request codes:** these are deprecated since activity 1.2.0. Use the permission launcher from Lecture 6.
+7. **The ProgressDialog replacement:** an AlertDialog with a ProgressBar avoids the deprecated class, but it is still a blocking dialog. Google's advice is a ProgressBar inside the layout, and the slides do that.
+8. **findViewById + a separate ViewHolder class:** replaced by ViewBinding. In the BaseAdapter, the row's binding object is stored in the tag and acts as the ViewHolder. Both versions are correct, and the notes say so.
+9. **build.gradle snippets:**
+   - `minifyEnabled = false` is Groovy syntax; in .kts it is `isMinifyEnabled = false`.
+   - Java 1.8 / `kotlinOptions` are older than the current template (Java 11 and `compilerOptions`).
+   - The manifest's `package="…"` is the Gradle `namespace` since AGP 8.
+10. **INTERNET permission "required by GeoCoder":** not claimed on the slides. The notes say it is a normal permission granted automatically, so keeping it does no harm.
+11. **Hard-coded white/grey row text** for a dark background was removed so rows work in light mode too.
 
 ## Lecture 9: Activity Life Cycle & Splash Screen
 

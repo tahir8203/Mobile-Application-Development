@@ -628,3 +628,54 @@ body.pz-open{overflow:hidden}
 .vsr-t{font-family:var(--mono,monospace);color:var(--mu);text-align:right}
 @media (max-width:760px){.vrl{grid-template-columns:minmax(0,1fr)}.vsr-mini{width:3.8em;height:6.2em}}
 @media (prefers-reduced-motion:reduce){.vrl-ph.spin{animation:none}.vsr-cur,.vsr-bar i,.vsr-mini{transition:none}}
+
+/* getView lab, lat/long map, location flow (Lecture 10) */
+.vgv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;align-items:start}
+.vgv-win{display:flex;flex-direction:column;gap:.35rem;padding:.5rem;border:2px solid var(--line);border-radius:14px;background:var(--bg)}
+.vgv-row{display:flex;align-items:center;gap:.5rem;padding:.4rem .5rem;border-radius:10px;background:var(--panel-2);min-width:0}
+.vgv-row i{flex:none;font-style:normal;font-size:.7em;font-weight:800;color:#fff;border-radius:8px;padding:.2em .45em;min-width:2.6em;text-align:center}
+.vgv-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vgv-row small{color:var(--mu);font-size:.7em;flex:none}
+.vgv-row.new{animation:vgv-in .45s ease}
+@keyframes vgv-in{from{transform:translateY(60%);opacity:0}to{transform:none;opacity:1}}
+.vgv-side{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.vgv-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem}
+.vgv-stats div{padding:.45rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:.78em;color:var(--mu)}
+.vgv-stats b{display:block;font-size:1.6em;color:var(--cyan)}
+.vgv-stats .bad b{color:var(--bad,#f87171)}
+.vgv-side .vz-console{white-space:pre-wrap;overflow-wrap:anywhere}
+.vll{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:.8rem;align-items:start}
+.vll-map svg{width:100%;height:auto;display:block;border-radius:12px;background:#0b2545;border:1px solid var(--line)}
+.vll-map .g{stroke:rgba(148,163,184,.25);stroke-width:.5}
+.vll-map .eq{stroke:#f59e0b;stroke-width:1.2}
+.vll-map .pm{stroke:#22d3ee;stroke-width:1.2}
+.vll-map .lat{stroke:#f59e0b;stroke-width:.9;stroke-dasharray:3 2}
+.vll-map .lon{stroke:#22d3ee;stroke-width:.9;stroke-dasharray:3 2}
+.vll-map .d{fill:#94a3b8}
+.vll-map .cur{fill:#f43f5e;stroke:#fff;stroke-width:1}
+.vll-map .t{fill:#cbd5e1;font-size:7px;font-family:var(--mono,monospace)}
+.vll-side{display:flex;flex-direction:column;gap:.45rem;min-width:0}
+.vll-name{font-size:1.2em}
+.vll-v{padding:.4rem .6rem;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-family:var(--mono,monospace);overflow-wrap:anywhere}
+.vll-v i{display:block;font-style:normal;font-size:.7em;color:var(--mu);font-family:inherit}
+.vll-v small{display:block;font-family:var(--sans,inherit);color:var(--mu)}
+.vll-v.lat{border-left:4px solid #f59e0b}.vll-v.lon{border-left:4px solid #22d3ee}
+.vll-side .vz-console{white-space:pre-wrap;overflow-wrap:anywhere}
+.vlf{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:.8rem;align-items:start}
+.vlf .phone-body{position:relative;min-height:16em}
+.vlf-k{line-height:1.6}
+.vlf-dim{position:absolute;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:.5em;animation:vlf-fade .3s ease}
+.vlf-dlg{background:#fff;color:#0f172a;border-radius:14px;padding:.8em;display:flex;flex-direction:column;gap:.45em;font-size:.78em;text-align:center}
+.vlf-pick{display:flex;justify-content:space-around;gap:.4em;color:#475569}.vlf-pick .on{color:#2563eb;font-weight:700}
+.vlf-opt{padding:.45em;border-radius:999px;background:#e0e7ff;color:#1e3a8a;font-weight:600}
+.vlf-spin{width:2.4em;height:2.4em;margin:1em auto .3em;border-radius:50%;border:4px solid #bfdbfe;border-top-color:#2563eb;animation:vlf-rot .9s linear infinite}
+@keyframes vlf-rot{to{transform:rotate(360deg)}}
+@keyframes vlf-fade{from{opacity:0}to{opacity:1}}
+.vlf-side{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.vlf-steps{display:flex;flex-wrap:wrap;gap:.3rem}
+.vlf-steps span{font-size:.72em;padding:.25em .55em;border-radius:999px;border:1px solid var(--line);color:var(--mu)}
+.vlf-steps .done{color:var(--ok);border-color:var(--ok)}
+.vlf-steps .cur{color:#0f172a;background:var(--cyan);border-color:var(--cyan);font-weight:700}
+.vlf-code{font-size:.72em;max-height:14em}
+@media (max-width:760px){.vgv,.vll,.vlf{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){.vgv-row.new,.vlf-dim{animation:none}.vlf-spin{animation-duration:3s}}

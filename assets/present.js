@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=12';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=13';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -697,6 +697,45 @@ Viz.splashrace=(c,o,ctl)=>{
  const S=o.script;
  return{n:()=>S.length,note:'',draw(i){render(S[i].t)},cap:i=>S[i].cap};
 };
+/* getView lab: scroll a ListView one row per step; count getView(), inflate() and findViewById() calls with row reuse and the ViewHolder (binding in tag) switched on or off. */
+Viz.getviewlab=(c,o,ctl)=>{
+ const V=o.visible||5,items=o.items,N=items.length,F=o.fields||4,opt={reuse:true,holder:true};
+ const cols=['#2563eb','#0891b2','#7c3aed','#059669','#d97706','#db2777'];
+ const w=el('div','vgv');c.appendChild(w);
+ const tg=(k,label)=>'<button type="button" class="vz-btn" data-o="'+k+'" aria-pressed="'+opt[k]+'">'+(opt[k]?'✓ ':'✗ ')+label+'</button>';
+ function render(i){
+  const calls=V+i,infl=opt.reuse?V+(i>0?1:0):calls,find=F*(opt.holder&&opt.reuse?infl:calls);
+  let rows='';for(let p=i;p<i+V;p++){const id=opt.reuse?p%(V+1):p,isNew=i>0&&p===i+V-1;rows+='<div class="vgv-row'+(isNew?' new':'')+'"><i style="background:'+cols[id%cols.length]+'">'+(opt.reuse?'#'+(id+1):'new')+'</i><span>'+esc(items[p])+'</span><small>pos '+p+'</small></div>'}
+  const last=i===0?'first screen: getView(0…'+(V-1)+', convertView = null) → inflate '+V+' rows':'getView('+(i+V-1)+', convertView = '+(opt.reuse?(i===1?'null) → nothing scrapped yet: inflate one spare row':'row #'+((i+V-1)%(V+1)+1)+') → reuse it'):'ignored) → inflate a NEW row')+(opt.holder&&opt.reuse?', views from tag':', findViewById() × '+F);
+  w.innerHTML='<div class="vgv-win">'+rows+'</div><div class="vgv-side"><div class="vgv-stats"><div><b>'+N+'</b>songs in the list</div><div><b>'+calls+'</b>getView() calls</div><div class="'+(infl>V+1?'bad':'')+'"><b>'+infl+'</b>rows inflated</div><div class="'+(find>F*(V+1)?'bad':'')+'"><b>'+find+'</b>findViewById() calls</div></div><div class="vz-console">'+esc(last)+'</div><div class="vpd-acts">'+tg('reuse','Reuse convertView')+tg('holder','ViewHolder (tag)')+'</div></div>';
+  $$('[data-o]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();opt[b.dataset.o]=!opt[b.dataset.o];render(ctl.i||0)}))}
+ return{n:()=>Math.min(N-V+1,o.steps||10),note:'sim',draw(i){render(i)},
+  cap:i=>i===0?'Only the **'+V+' visible rows** are inflated, even though the list has **'+N+'** songs.':i===1?'First scroll: the new bottom row appears before the top one leaves, so **one spare row** is inflated (6 in total).':'Scrolled '+i+' rows: the row that left the top is handed back as **convertView** and filled with song **'+(i+V-1)+'**. Switch the options off to see the cost.'};
+};
+/* Latitude / longitude map: equirectangular grid; step through cities, or tap one. */
+Viz.latlng=(c,o,ctl)=>{
+ const P=o.places,w=el('div','vll');c.appendChild(w);
+ const X=lon=>lon+180,Y=lat=>90-lat;
+ let grid='';for(let lo=-150;lo<=150;lo+=30)grid+='<line x1="'+X(lo)+'" y1="0" x2="'+X(lo)+'" y2="180" class="g"/>';for(let la=-60;la<=60;la+=30)grid+='<line x1="0" y1="'+Y(la)+'" x2="360" y2="'+Y(la)+'" class="g"/>';
+ function render(k){const p=P[k];
+  const dots=P.map((q,j)=>'<circle cx="'+X(q.lon)+'" cy="'+Y(q.lat)+'" r="'+(j===k?4.5:2.6)+'" class="'+(j===k?'cur':'d')+'"/>').join('');
+  w.innerHTML='<div class="vll-map"><svg viewBox="0 0 360 180" role="img" aria-label="World grid with the equator, the prime meridian and city points">'+grid+'<line x1="0" y1="90" x2="360" y2="90" class="eq"/><line x1="180" y1="0" x2="180" y2="180" class="pm"/><line x1="0" y1="'+Y(p.lat)+'" x2="'+X(p.lon)+'" y2="'+Y(p.lat)+'" class="lat"/><line x1="'+X(p.lon)+'" y1="180" x2="'+X(p.lon)+'" y2="'+Y(p.lat)+'" class="lon"/>'+dots+'<text x="4" y="86" class="t">Equator 0°</text><text x="183" y="10" class="t">Prime meridian 0°</text><text x="176" y="176" class="t">S</text><text x="176" y="20" class="t">N</text></svg></div><div class="vll-side"><b class="vll-name">'+esc(p.name)+'</b><div class="vll-v lat"><i>latitude</i>'+p.lat.toFixed(4)+'° <small>'+(p.lat>=0?'North of the equator (+)':'South of the equator (−)')+'</small></div><div class="vll-v lon"><i>longitude</i>'+p.lon.toFixed(4)+'° <small>'+(p.lon>=0?'East of Greenwich (+)':'West of Greenwich (−)')+'</small></div><div class="vz-console">location.latitude  = '+p.lat+'\nlocation.longitude = '+p.lon+'</div><div class="vpd-acts">'+P.map((q,j)=>'<button type="button" class="vz-btn" data-k="'+j+'" aria-pressed="'+(j===k)+'">'+esc(q.short||q.name)+'</button>').join('')+'</div></div>';
+  $$('[data-k]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();ctl.go(+b.dataset.k)}))}
+ return{n:()=>P.length,note:'',draw(i){render(i)},cap:i=>P[i].cap||''};
+};
+/* Location app flow on a phone: idle → permission → loading → coordinates → address. */
+Viz.locflow=(c,o)=>{
+ const w=el('div','vlf');c.appendChild(w);const S=o.steps;
+ const scr={
+  idle:()=>'<button type="button" class="w-btn">📡 Get my location</button><div class="w-text vlf-k">Latitude: --<br>Longitude: --<br>Address: --</div>',
+  perm:()=>'<div class="vlf-dim"><div class="vlf-dlg"><b>Allow '+esc(o.app||'GPS Demo')+' to access this device’s location?</b><div class="vlf-pick"><span class="on">◉ Precise</span><span>○ Approximate</span></div><span class="vlf-opt">While using the app</span><span class="vlf-opt">Only this time</span><span class="vlf-opt">Don’t allow</span></div></div>',
+  load:()=>'<button type="button" class="w-btn" disabled style="opacity:.5">📡 Get my location</button><div class="vlf-spin" aria-hidden="true"></div><div class="w-text vlf-k" style="text-align:center">Getting your location…</div>',
+  coords:s=>'<button type="button" class="w-btn">📡 Get my location</button><div class="w-text vlf-k">Latitude: '+s.lat+'<br>Longitude: '+s.lon+'<br><small>± '+s.acc+' m</small><br>Address: …</div>',
+  addr:s=>'<button type="button" class="w-btn">📡 Get my location</button><div class="w-text vlf-k">Latitude: '+s.lat+'<br>Longitude: '+s.lon+'<br><small>± '+s.acc+' m</small><br>Address:<br><b>'+esc(s.addr)+'</b></div>'};
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];w.innerHTML='<div class="vlf-ph">'+phone(o.app||'GPS Demo',scr[s.screen](s))+'</div><div class="vlf-side"><div class="vlf-steps">'+S.map((x,j)=>'<span class="'+(j===i?'cur':j<i?'done':'')+'">'+(j+1)+'. '+esc(x.label)+'</span>').join('')+'</div><pre class="val-code vlf-code">'+(s.code||'').split('\n').map(l=>'<span class="ln">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre></div>'},
+  cap:i=>S[i].cap};
+};
 
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -804,7 +843,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');
