@@ -564,3 +564,19 @@ body.pz-open{overflow:hidden}
 .vpl-side .vz-console{min-height:7em;font-size:.82em}
 .vpl-side .vz-btn{align-self:flex-start;min-height:40px}
 @media (max-width:760px){.vpl{grid-template-columns:minmax(0,1fr)}}
+
+/* scaleType lab + animation lab */
+.vst,.vanl{display:flex;flex-direction:column;gap:.55rem;min-width:0}
+.vst-form,.vanl-form{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end}
+.vst-form label,.vanl-form label{display:flex;flex-direction:column;font-size:.78em;color:var(--mu);gap:.15rem}
+.vst-form select,.vanl-form select{min-height:44px;border:1px solid var(--line);background:var(--panel-2);color:var(--tx);border-radius:10px;padding:0 .4em;font:inherit;font-size:.95rem}
+.vst-form .vz-mono{font-size:.75em;color:var(--mu)}
+.vanl-form .vz-btn{min-height:44px}
+.vst-box{width:min(13rem,70vw);aspect-ratio:1;margin:.3rem auto;border:3px dashed var(--cyan);border-radius:8px;background:repeating-conic-gradient(#e2e8f0 0 25%,#fff 0 50%) 0 0/16px 16px;overflow:hidden}
+.vst-box img{width:100%;height:100%;display:block;object-position:center}
+.vanl-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:.6rem;align-items:center;min-width:0}
+.vanl-stage{display:flex;flex-direction:column;gap:.4rem;align-items:stretch}
+.vanl-track{height:7.5rem;border-radius:12px;background:var(--bg);border:1px solid var(--line);display:flex;align-items:center;padding:0 .5rem;overflow:hidden}
+.vanl-logo{width:4rem;height:4rem;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#22d3ee);display:grid;place-items:center;font-size:2rem}
+.vanl-t{font-size:.8em;color:var(--mu)}
+@media (max-width:760px){.vanl-grid{grid-template-columns:minmax(0,1fr)}}

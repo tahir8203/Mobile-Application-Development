@@ -39,8 +39,75 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=9` everywhere, and the service worker cache is now `mad-v9`.
+- **Cache:** `?v=10` everywhere, and the service worker cache is now `mad-v10`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
+
+## Lecture 7: Animations, Images & Notifications (+ Wi-Fi, Bluetooth, camera)
+
+**Slides: 25 → 39.** That is 35 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 7.docx". The slides keep its order: images → animations → notifications → Wi-Fi → Bluetooth → camera, ending with your "App → Permission → System service → Hardware → Result → Screen" model.
+
+### What changed
+
+- **Compose removed** (the old "Animation in Compose" slide). Every screen uses ViewBinding.
+- **Two new live widgets:**
+  - **scaleType lab** (`scaletype`): one wide picture in a square ImageView, with centerCrop / fitCenter / centerInside / fitXY. The browser uses the matching CSS rules (cover / contain / scale-down / fill).
+  - **Animation lab** (`animlab`): choose alpha / translate / scale / rotate and a duration. It shows the exact res/anim XML and plays it, with a live timer. With "reduce motion" on, it shows only the end state.
+- **New slides:**
+  - image formats, including vector drawables
+  - naming rules
+  - adding an image
+  - common image mistakes
+  - view animation vs property animation (`view.animate()`)
+  - notification types
+  - how a notification travels
+  - a channel slide
+  - a build-and-post slide with the permission check
+  - asking the permission in context
+  - the manifest
+  - your hardware model
+  - the Wi-Fi settings panel
+  - Bluetooth permissions with maxSdkVersion
+  - camera with TakePicturePreview
+  - the "CAMERA declared but not granted" crash
+  - your error table with modern reasons
+- **61 defined terms.** Examples: resource id, scaleType, WebP, vector drawable, view vs property animation, pivot, fillAfter, local vs push notification, channel importance, PendingIntent, FLAG_IMMUTABLE, system service, SSID, settings panel, scan throttling, BLUETOOTH_CONNECT, maxSdkVersion, TakePicturePreview, Bitmap, CameraX. 50 were added to the portal glossary, which now has 345 terms.
+- **Cache:** `?v=10` / `mad-v10`.
+- **Course Outline:** all 10 Lecture 7 topics land on the matching slides.
+
+### Verification
+
+All Kotlin was compiled with Kotlin 2.2.21 against stand-in Android classes, with simulated taps.
+
+- **Image and animations:** the image swap works; the XML fade and move animations and `view.animate()` run.
+- **Notifications:**
+  - the channel is created
+  - Android 13, permission denied → "Notifications are off"
+  - allowed → the notification is posted
+  - Android 12 → posted without asking
+- **Wi-Fi:** the settings panel opens on API 29+, and Wi-Fi settings on API 28. The scan asks for location first, then lists network names; empty names are filtered out.
+- **Bluetooth:** asks BLUETOOTH_CONNECT, shows the enable dialog, then lists paired device names.
+- **Camera:** a photo is shown; cancel → "No photo taken".
+- **A real fix found by the compiler:** `getSystemService(...)` can return null, so the slides now use `manager?.`, `wifi?.` and `?: emptyList()`.
+- **XML:** all 5 XML snippets are well-formed (the two anim files checked separately).
+- **Facts checked on developer.android.com (26 Nov 2026):**
+  - `WifiManager.setWifiEnabled`: "Starting with Q, applications are not allowed to enable/disable Wi-Fi … this API will always fail and return false".
+  - `startScan()` was deprecated in API 28. Android 10+ scanning needs ACCESS_FINE_LOCATION; a foreground app may scan 4 times per 2 minutes (develop/connectivity/wifi/wifi-scan).
+  - `BluetoothAdapter.disable()`: deprecated in API 33; apps targeting 13+ cannot enable or disable Bluetooth.
+  - Legacy Bluetooth permissions should use `maxSdkVersion="30"` (develop/connectivity/bluetooth/bt-permissions).
+  - `MediaStore.ACTION_IMAGE_CAPTURE`: if the app declares CAMERA and it is not granted, using the action throws a SecurityException.
+
+### Corrections to your notes
+
+1. **"Pushing a notification" = `notify()`.** In Android vocabulary notify() *posts* a local notification; a push notification comes from a server (Firebase Cloud Messaging). Your own types table already separates them.
+2. **POST_NOTIFICATIONS is requested in `onCreate`** with requestPermissions, before the user knows why, and the answer is ignored. It is now asked on the button tap with the Activity Result API (Lecture 6), and `notify()` runs only when allowed.
+3. **Wi-Fi Enable/Disable buttons:** since Android 10 these always fail, yet the notes' code still shows "Wi-Fi Enabled". Replaced with the Wi-Fi settings panel.
+4. **Wi-Fi scan:** the notes ask for location in onCreate and read results without checking the answer. `startScan()` is deprecated and throttled. NEARBY_WIFI_DEVICES does not replace location for listing networks.
+5. **Bluetooth Disable button:** `disable()` always fails on Android 13+. The legacy BLUETOOTH / BLUETOOTH_ADMIN permissions need `maxSdkVersion="30"`, and the manifest listed Wi-Fi and location permissions this example does not need. The rest of your Bluetooth code was already modern. 👍
+6. **Camera:**
+   - `result.data?.extras?.get("data") as Bitmap` uses a method deprecated on Android 13 and crashes if no picture comes back. It is replaced with TakePicturePreview.
+   - Declaring CAMERA and launching the camera Intent after the user denied it throws a SecurityException; there is a mistake slide on this.
+7. **scaleType table:** "centerInside → keeps original size" is more exactly "shrinks a large picture to fit, never enlarges a small one".
+8. **Image names:** besides lowercase and no spaces, names must not use dashes or start with a digit.
 
 ## Lecture 6: Android Permissions
 

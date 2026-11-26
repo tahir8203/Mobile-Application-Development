@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=9';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=10';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -589,6 +589,41 @@ Viz.permlife=(c,o,ctl)=>{
   cap:i=>S[i].cap};
 };
 
+/* scaleType lab: one wide picture in a fixed 200dp box. CSS object-fit matches Android: centerCrop=cover, fitCenter=contain, centerInside=scale-down, fitXY=fill */
+const PIC='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><rect width="240" height="120" fill="#0ea5e9"/><circle cx="40" cy="30" r="16" fill="#fde047"/><path d="M0 120 L70 50 L120 100 L170 40 L240 120 Z" fill="#065f46"/><rect x="0" y="0" width="240" height="120" fill="none" stroke="#f43f5e" stroke-width="6"/><text x="120" y="70" font-family="sans-serif" font-size="22" font-weight="bold" fill="#fff" text-anchor="middle">logo.png</text></svg>');
+Viz.scaletype=(c,o,ctl)=>{
+ const T=[['centerCrop','cover','Fills the whole box; the extra edges are cut off.'],['fitCenter','contain','The whole picture is visible and centred; empty strips may appear.'],['centerInside','scale-down','Like fitCenter, but never makes a small picture bigger.'],['fitXY','fill','Stretches to fill the box exactly; the picture can look squashed.']];
+ const w=el('div','vst');const sel=el('div','vst-form','<label>android:scaleType<select>'+T.map(t=>'<option>'+t[0]+'</option>').join('')+'</select></label><span class="vz-mono">200dp × 200dp ImageView · picture 2:1 (wide)</span>');
+ const box=el('div','vst-box','<img alt="A wide picture with a red border, shown inside a square ImageView">');w.appendChild(sel);w.appendChild(box);c.appendChild(w);
+ const s=$('select',sel),img=$('img',box);img.src=o.src||PIC;let cur=0;
+ s.addEventListener('change',()=>{ctl.pause();cur=T.findIndex(t=>t[0]===s.value);img.style.objectFit=T[cur][1];ctl.go(cur)});
+ return{n:()=>T.length,note:'',draw(i){cur=i;s.value=T[i][0];img.style.objectFit=T[i][1]},cap:i=>'**'+T[i][0]+'** — '+T[i][2]+' Watch the red border.'};
+};
+/* animation lab: choose a tween type and duration; shows the res/anim XML and plays it on the logo */
+Viz.animlab=(c,o,ctl)=>{
+ const st={type:'alpha',dur:2000};
+ const w=el('div','vanl');
+ const f=el('div','vanl-form','<label>type<select data-k="type"><option value="alpha">alpha (fade)</option><option value="translate">translate (move)</option><option value="scale">scale (grow)</option><option value="rotate">rotate (spin)</option></select></label><label>duration<select data-k="dur"><option value="500">500 ms</option><option value="1000">1000 ms</option><option value="2000">2000 ms</option></select></label><button type="button" class="vz-btn" data-x="run">▶ startAnimation()</button>');
+ const grid=el('div','vanl-grid');const code=el('pre','val-code');code.tabIndex=0;const stage=el('div','vanl-stage','<div class="vanl-track"><div class="vanl-logo" role="img" aria-label="App logo">🤖</div></div><div class="vanl-t vz-mono">t = 0 ms</div>');
+ grid.appendChild(code);grid.appendChild(stage);w.appendChild(f);w.appendChild(grid);c.appendChild(w);
+ const logo=$('.vanl-logo',stage),tl=$('.vanl-t',stage);let anim=null,raf=0;
+ const X={alpha:d=>['<alpha xmlns:android="http://schemas.android.com/apk/res/android"','    android:duration="'+d+'"','    android:fromAlpha="0.0"','    android:toAlpha="1.0" />'],
+  translate:d=>['<translate xmlns:android="http://schemas.android.com/apk/res/android"','    android:duration="'+d+'"','    android:fromXDelta="0%"','    android:toXDelta="100%" />'],
+  scale:d=>['<scale xmlns:android="http://schemas.android.com/apk/res/android"','    android:duration="'+d+'"','    android:fromXScale="0.5"','    android:toXScale="1.5"','    android:fromYScale="0.5"','    android:toYScale="1.5"','    android:pivotX="50%"','    android:pivotY="50%" />'],
+  rotate:d=>['<rotate xmlns:android="http://schemas.android.com/apk/res/android"','    android:duration="'+d+'"','    android:fromDegrees="0"','    android:toDegrees="360"','    android:pivotX="50%"','    android:pivotY="50%" />']};
+ const K={alpha:[{opacity:0},{opacity:1}],translate:[{transform:'translateX(0)'},{transform:'translateX(100%)'}],scale:[{transform:'scale(.5)'},{transform:'scale(1.5)'}],rotate:[{transform:'rotate(0deg)'},{transform:'rotate(360deg)'}]};
+ function show(){$$('select',f).forEach(s=>{s.value=String(st[s.dataset.k])});code.innerHTML=X[st.type](st.dur).map(l=>'<span class="ln">'+(hlLine(l,'xml')||' ')+'</span>').join('');}
+ function run(){if(anim)anim.cancel();cancelAnimationFrame(raf);const reduce=reduceMotion();
+  if(reduce||!logo.animate){logo.style.opacity='';logo.style.transform=K[st.type][1].transform||'';tl.textContent='Reduced motion: showing the end state (t = '+st.dur+' ms)';return}
+  anim=logo.animate(K[st.type],{duration:st.dur,easing:'linear'});const t0=performance.now();
+  const tick=()=>{const t=Math.min(st.dur,Math.round(performance.now()-t0));tl.textContent='t = '+t+' ms';if(t<st.dur)raf=requestAnimationFrame(tick);else tl.textContent='t = '+st.dur+' ms — finished; the view jumps back (fillAfter is false)'};raf=requestAnimationFrame(tick)}
+ $$('select',f).forEach(s=>s.addEventListener('change',()=>{const k=s.dataset.k;st[k]=k==='dur'?+s.value:s.value;ctl.pause();show()}));
+ $('[data-x]',f).addEventListener('click',run);show();
+ const S=o.steps;
+ return{n:()=>S.length,note:'',draw(i){Object.assign(st,S[i].set||{});show();if(S[i].play)run()},cap:i=>S[i].cap,
+  destroy(){if(anim)anim.cancel();cancelAnimationFrame(raf)}};
+};
+
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
  play:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>',
@@ -695,7 +730,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');
