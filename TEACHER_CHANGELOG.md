@@ -39,8 +39,82 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=5` everywhere, and the service worker cache is now `mad-v5`.
+- **Cache:** `?v=6` everywhere, and the service worker cache is now `mad-v6`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
+
+## Lecture 3: Android Development Environment & First App
+
+**Slides: 23 → 39.** That is 35 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 3.docx" / "Lecture 3.pdf". "Lecture 3 pdf LLM.pdf" is image-only and matches the same content.
+
+### What changed
+
+- **XML + ViewBinding, not Compose.** The old deck used the Compose template, `setContent`, `ComponentActivity`, and an `activity-compose` dependency, and it labelled XML "Legacy". Now:
+  - every screen is an XML layout with `setContentView`
+  - `findViewById` is shown first (you will see it in old tutorials), then **ViewBinding**, which students write
+  - Compose appears only in the "wrong template" mistake slide and in tooltips
+- **Your notes' structure is kept** (what it is → why it exists → how it works → example). There is now one idea per slide:
+  - toolkit
+  - Android Studio (with the window tour)
+  - what Run does
+  - SDK
+  - SDK Manager
+  - API levels
+  - emulator
+  - creating an AVD
+  - third-party emulators
+  - real phone
+  - Gradle
+  - dependencies
+  - the Gradle file
+  - Gradle sync
+  - new project
+  - project structure
+  - manifest
+  - layout
+  - resources and the R class
+  - MainActivity
+  - findViewById vs ViewBinding
+  - calculator code
+  - **a working calculator demo** (type two numbers, tap Add)
+  - the full 7-step flow
+  - Run
+  - Logcat
+  - three mistakes
+- **85 defined terms** (84 used as tooltips). Examples: API, API level, system image, AVD, hardware acceleration, ADB, USB/Wireless debugging, Gradle sync, Maven repository, version catalog, namespace, applicationId, versionCode, intent-filter, `android:exported`, Bundle, `super`, R class, inflate, toIntOrNull, NumberFormatException. 49 were added to the portal glossary, which now has 199 terms.
+- **Engine:** the XML-to-phone widget's button can now run a small calculation from the text boxes. That powers the calculator demo; it supports number keyboards and grey hints. Cache is now `?v=6` / `mad-v6`.
+- **Course Outline links:** all 11 Lecture 3 topics land on the matching new slides.
+
+### Verification
+
+- **Calculator (ViewBinding version):** compiled with Kotlin 2.2.21 against stand-in Android classes, and a button click was simulated:
+  - 12 + 30 → `Result: 42`
+  - an empty box → `Please enter two numbers`
+  - "abc" → `Please enter two numbers`
+- **The browser demo uses the same rules as Kotlin's `toIntOrNull`.** Checked against the real compiler: "+5" → 5, " 7" → null, "99999999999" → null.
+- **Your original findViewById calculator** was also compiled and clicked with an empty box. It crashes with `NumberFormatException: For input string: ""`; this is the "crashing on empty input" mistake slide.
+- **Logcat demo:** prints `D/FirstApp: onCreate called` and `D/FirstApp: total = 5`.
+- **XML:** the manifest, the layout and the mistake snippets are all well-formed.
+- **Library versions:** checked on Google's Maven repository on 26 Nov 2026 — AppCompat 1.8.0, Material Components 1.14.0.
+- **Android Studio:** the current stable version on developer.android.com/studio/releases is **Rabbit 2 (2026.2.2)**. It is mentioned only in the notes, not on slides.
+- **Browser tests:**
+  - All 39 slides open with no errors, and every animation steps to the end.
+  - No slide scrolls sideways at 360px.
+  - Lectures 1 and 2 and all portal pages were re-tested.
+
+### Corrections to your notes
+
+1. **"New Project → Empty Activity"** now creates a **Jetpack Compose** project; Google's create-project page says Empty Activity includes Compose. For XML choose **"Empty Views Activity"**. There is a mistake slide on this.
+2. **Minimum SDK "API 21"** → this course uses **API 24** (Android 7.0), as in Lectures 2–3.
+3. **Manifest `<manifest package="com.example.firstapp">`** is the old way. The package now lives in `build.gradle.kts` as `namespace` (developer.android.com/build/configure-app-module).
+4. **Your activity had no `android:exported`.** Apps targeting Android 12+ must set it on any screen with an intent-filter, or the app will not install (developer.android.com/about/versions/12/behavior-changes-12).
+5. **The calculator layout** had no `layout_width` / `layout_height` (the build fails without them) and no `xmlns:android`. Both were added, plus `inputType="number"`.
+6. **The calculator code used `toInt()`**, which crashes when a box is empty (verified). It now uses `toIntOrNull()` with a null check, and ViewBinding instead of findViewById.
+7. **The Gradle example** `implementation 'androidx.appcompat:appcompat:1.6.1'` is the older Groovy style with an old version. It is now shown in Kotlin DSL with the current versions, and the version catalog form is mentioned.
+
+### Open questions (Lecture 3)
+
+1. **Template name.** "Empty Views Activity" is the name used by recent Android Studio versions, but the official create-project page does not list it by name. Please confirm the name on the lab PCs' Android Studio.
+2. **Lab PCs.** Do they have virtualization (hardware acceleration) turned on? If not, students should use real phones; the AVD slide says so.
 
 ## Lecture 1: Introduction to Mobile Application Development
 

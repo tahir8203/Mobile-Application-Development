@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=5';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=6';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -351,8 +351,8 @@ Viz.tree=(c,o)=>{
 /* code ↔ phone mapping (XML layouts, Compose) */
 Viz.xmlphone=(c,o)=>{
  let count=0;
- c.innerHTML='<div class="vx"><div class="vz-code1">'+o.code.map((l,k)=>'<span class="xl" data-k="'+(k+1)+'">'+(hlLine(l,o.lang||'xml')||' ')+'</span>').join('')+'</div><div>'+phone(o.app||'My App',o.views.map(v=>v.type==='button'?'<button type="button" class="w-btn" data-v="'+v.id+'">'+esc(v.text)+'</button>':v.type==='edit'?'<input class="w-edit" data-v="'+v.id+'" value="'+esc(v.text)+'" aria-label="'+esc(v.id)+'">':v.type==='image'?'<div class="w-img" data-v="'+v.id+'">'+esc(v.text||'🖼')+'</div>':'<div class="w-text" data-v="'+v.id+'">'+esc(v.text)+'</div>').join(''))+'</div></div>';
- if(o.click){const b=$('[data-v="'+o.click.btn+'"]',c);b.addEventListener('click',()=>{count++;const t=$('[data-v="'+o.click.target+'"]',c);const src=o.click.from?($('[data-v="'+o.click.from+'"]',c).value||''):'';t.textContent=o.click.text.replace('{n}',count).replace('{v}',src);t.classList.remove('on-pop');void t.offsetWidth;t.classList.add('on-pop')})}
+ c.innerHTML='<div class="vx"><div class="vz-code1">'+o.code.map((l,k)=>'<span class="xl" data-k="'+(k+1)+'">'+(hlLine(l,o.lang||'xml')||' ')+'</span>').join('')+'</div><div>'+phone(o.app||'My App',o.views.map(v=>v.type==='button'?'<button type="button" class="w-btn" data-v="'+v.id+'">'+esc(v.text)+'</button>':v.type==='edit'?'<input class="w-edit" data-v="'+v.id+'" value="'+esc(v.text)+'"'+(v.hint?' placeholder="'+esc(v.hint)+'"':'')+(v.num?' inputmode="numeric"':'')+' aria-label="'+esc(v.hint||v.id)+'">':v.type==='image'?'<div class="w-img" data-v="'+v.id+'">'+esc(v.text||'🖼')+'</div>':'<div class="w-text" data-v="'+v.id+'">'+esc(v.text)+'</div>').join(''))+'</div></div>';
+ if(o.click){const b=$('[data-v="'+o.click.btn+'"]',c);b.addEventListener('click',()=>{count++;const t=$('[data-v="'+o.click.target+'"]',c);const src=o.click.from?($('[data-v="'+o.click.from+'"]',c).value||''):'';if(o.click.fn){const vals={};$$('.w-edit',c).forEach(x=>{vals[x.dataset.v]=x.value});t.textContent=o.click.fn(vals)}else t.textContent=o.click.text.replace('{n}',count).replace('{v}',src);t.classList.remove('on-pop');void t.offsetWidth;t.classList.add('on-pop')})}
  return{n:()=>o.steps.length,note:'',
   draw(i){const s=o.steps[i],[a,b]=parseRange(s.lines);$$('.xl',c).forEach(x=>{const k=+x.dataset.k;x.classList.toggle('on',k>=a&&k<=b)});$$('[data-v]',c).forEach(v=>v.classList.toggle('hl',(s.view||'').split(',').includes(v.dataset.v)))},
   cap:i=>o.steps[i].cap};
