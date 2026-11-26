@@ -39,8 +39,62 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=10` everywhere, and the service worker cache is now `mad-v10`.
+- **Cache:** `?v=11` everywhere, and the service worker cache is now `mad-v11`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
+- **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 8: Android Data Storage
+
+**Slides: 34 in total.** That is 30 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 8.html". The order follows it: why store data → key factors → the four options and how to choose → SharedPreferences in full (create, store, apply vs commit, retrieve, delete) → the SharedPrefDemo project → remember me → combining storage. Your SQLite, MySQL + PHP and Firebase code is left for Lectures 11–13, as in the course outline; this lecture only previews them.
+
+### What changed
+
+- **Compose and Java removed.** Kotlin + XML + ViewBinding only.
+- **Two new live widgets:**
+  - **SharedPreferences demo** (`prefsdemo`): a phone running SharedPrefDemo next to the real `MyPrefs.xml` file. Save, Close app, Open again, Load and Clear show that the screen forgets but the file remembers. An empty age shows "Enter a valid age", the same as the fixed code.
+  - **Storage chooser** (`storechooser`): your decision flowchart as four Yes/No questions. It recommends SharedPreferences, SQLite/Room, Firebase or MySQL + PHP, and steps through four example apps.
+- **New slides:**
+  - the real XML file behind SharedPreferences
+  - when to use / not use
+  - apply() vs commit() side by side
+  - remember-me flow
+  - SharedPreferences vs DataStore
+  - internal storage folder tree and private file code
+  - shared/scoped storage
+  - three mistake slides (a list in prefs, passwords, forgetting apply())
+- **32 defined terms.** Examples: persistent, key-value pair, MODE_PRIVATE, Editor, apply(), commit(), default value, scope function, DataStore, internal storage, scoped storage, MediaStore, Android Keystore, token. 22 were added to the portal glossary, which now has 367 terms.
+- **Cache:** `?v=11` / `mad-v11`.
+- **Course Outline:** all 4 Lecture 8 topics land on matching slides ("The four main options", "Creating SharedPreferences", "Storing data with the Editor").
+
+### Verification
+
+All Kotlin was compiled with Kotlin 2.2.21 against stand-in Android classes, and each code slide's lines were checked to be identical to the tested file.
+
+- **Create / store / read / delete:**
+  - fresh install → Guest · 0 · false
+  - after storing → Ali · 20 · true, and `all` lists every key
+  - remove("username") → Guest, the age stays; clear() → 0 keys
+  - logout clears, opens LoginActivity and finishes
+- **SharedPrefDemo:** Load on a fresh install → No Name / 0; empty age → "Enter a valid age"; Ali + 21 → "Data Saved!"; a new screen (app reopened) → Load → Name: Ali, Age: 21.
+- **Private file:** readNote() before saving → ""; after saveNote("Buy milk") → "Buy milk".
+- **XML:** the MyPrefs.xml example and activity_main.xml are well-formed.
+- **The DataStore snippet was not compiled** (it needs the DataStore library and coroutines); it follows the official guide and the slide says so in the notes.
+- **Browser:** no script errors; all 34 slides have no sideways scrolling at 360 px; both widgets tested by script and by hand.
+- **Facts checked on developer.android.com (26 Nov 2026):**
+  - The SharedPreferences guide: "DataStore is a modern data storage solution that you should use instead of SharedPreferences".
+  - `android.preference.PreferenceManager` deprecated in API 29.
+  - Jetpack Security (security-crypto): all APIs deprecated in 2025 "in favor of existing platform APIs and direct use of Android Keystore".
+
+### Corrections to your notes
+
+1. **SharedPrefDemo crashes on an empty age:** `etAge.text.toString().toInt()` throws NumberFormatException. It is now `toIntOrNull()` with a Toast.
+2. **findViewById + five lateinit views** replaced with ViewBinding.
+3. **Key spelling:** the notes use "userAge" in the snippets and "userage" in the project. Keys are case-sensitive, so a value saved under one is not found under the other. The project slide uses one spelling throughout, and the notes warn about it.
+4. **`PreferenceManager.getDefaultSharedPreferences`:** the `android.preference` version is deprecated since API 29; use AndroidX Preference if needed, or just a named file.
+5. **"Sensitive passwords (use encryption)":** EncryptedSharedPreferences (Jetpack Security) is deprecated. The advice is now: never store passwords; store a login flag or server token, and use the Android Keystore for real secrets.
+6. **"apply() saves data in the background thread":** more exactly, memory updates at once and only the disk write happens in the background.
+7. **SharedPreferences as the default choice:** Google now recommends DataStore for new code. SharedPreferences stays the main topic (outline and existing apps), with a DataStore comparison slide.
+8. **Firebase "1 GB free":** free-plan limits change; the notes say to check firebase.google.com/pricing before quoting numbers.
 
 ## Lecture 7: Animations, Images & Notifications (+ Wi-Fi, Bluetooth, camera)
 

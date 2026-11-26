@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=10';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=11';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -593,8 +593,8 @@ Viz.permlife=(c,o,ctl)=>{
 const PIC='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><rect width="240" height="120" fill="#0ea5e9"/><circle cx="40" cy="30" r="16" fill="#fde047"/><path d="M0 120 L70 50 L120 100 L170 40 L240 120 Z" fill="#065f46"/><rect x="0" y="0" width="240" height="120" fill="none" stroke="#f43f5e" stroke-width="6"/><text x="120" y="70" font-family="sans-serif" font-size="22" font-weight="bold" fill="#fff" text-anchor="middle">logo.png</text></svg>');
 Viz.scaletype=(c,o,ctl)=>{
  const T=[['centerCrop','cover','Fills the whole box; the extra edges are cut off.'],['fitCenter','contain','The whole picture is visible and centred; empty strips may appear.'],['centerInside','scale-down','Like fitCenter, but never makes a small picture bigger.'],['fitXY','fill','Stretches to fill the box exactly; the picture can look squashed.']];
- const w=el('div','vst');const sel=el('div','vst-form','<label>android:scaleType<select>'+T.map(t=>'<option>'+t[0]+'</option>').join('')+'</select></label><span class="vz-mono">200dp × 200dp ImageView · picture 2:1 (wide)</span>');
- const box=el('div','vst-box','<img alt="A wide picture with a red border, shown inside a square ImageView">');w.appendChild(sel);w.appendChild(box);c.appendChild(w);
+ const w=el('div','vsc');const sel=el('div','vsc-form','<label>android:scaleType<select>'+T.map(t=>'<option>'+t[0]+'</option>').join('')+'</select></label><span class="vz-mono">200dp × 200dp ImageView · picture 2:1 (wide)</span>');
+ const box=el('div','vsc-box','<img alt="A wide picture with a red border, shown inside a square ImageView">');w.appendChild(sel);w.appendChild(box);c.appendChild(w);
  const s=$('select',sel),img=$('img',box);img.src=o.src||PIC;let cur=0;
  s.addEventListener('change',()=>{ctl.pause();cur=T.findIndex(t=>t[0]===s.value);img.style.objectFit=T[cur][1];ctl.go(cur)});
  return{n:()=>T.length,note:'',draw(i){cur=i;s.value=T[i][0];img.style.objectFit=T[i][1]},cap:i=>'**'+T[i][0]+'** — '+T[i][2]+' Watch the red border.'};
@@ -622,6 +622,45 @@ Viz.animlab=(c,o,ctl)=>{
  const S=o.steps;
  return{n:()=>S.length,note:'',draw(i){Object.assign(st,S[i].set||{});show();if(S[i].play)run()},cap:i=>S[i].cap,
   destroy(){if(anim)anim.cancel();cancelAnimationFrame(raf)}};
+};
+
+/* SharedPreferences live demo: the phone UI on one side, the real MyPrefs.xml file on the other. "Close app" clears the screen but not the file. */
+Viz.prefsdemo=(c,o,ctl)=>{
+ let file={},screen={name:'',age:'',result:''},open=true,log=[];
+ const w=el('div','vpd');const ph=el('div','vpd-ph');const side=el('div','vpd-side');w.appendChild(ph);w.appendChild(side);c.appendChild(w);
+ const xml=()=>{const L=["<?xml version='1.0' encoding='utf-8' standalone='yes' ?>",'<map>'];
+  if(file.username!==undefined)L.push('    <string name="username">'+file.username.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</string>');
+  if(file.userage!==undefined)L.push('    <int name="userage" value="'+file.userage+'" />');L.push('</map>');return L};
+ const A={
+  type(v){screen.name=v.name;screen.age=v.age},
+  save(){const age=parseInt(screen.age,10);if(!/^[+-]?\d+$/.test(String(screen.age).trim())||!(age>=-2147483648&&age<=2147483647)){log.push('Toast: Enter a valid age');return}
+   file.username=screen.name;file.userage=age;log.push('apply() → saved to MyPrefs.xml')},
+  load(){screen.result='Name: '+(file.username!==undefined?file.username:'No Name')+'\nAge: '+(file.userage!==undefined?file.userage:0);log.push('getString / getInt → shown on screen')},
+  close(){open=false;screen={name:'',age:'',result:''};log.push('app closed — the screen is gone')},
+  reopen(){open=true;log.push('app opened again')},
+  clear(){file={};log.push('edit().clear().apply() → file emptied')},
+  reset(){file={};screen={name:'',age:'',result:''};open=true;log=[]}};
+ function render(){
+  const body=open?'<input class="w-edit" data-f="name" placeholder="Enter Name" aria-label="Name" value="'+esc(screen.name)+'"><input class="w-edit" data-f="age" placeholder="Enter Age" inputmode="numeric" aria-label="Age" value="'+esc(screen.age)+'"><button type="button" class="w-btn" data-x="save">Save Data</button><button type="button" class="w-btn" data-x="load">Load Data</button><div class="w-text vpd-res">'+esc(screen.result).replace(/\n/g,'<br>')+'</div>':'<div class="w-text" style="color:#64748b">📱 App closed</div><button type="button" class="w-btn" data-x="reopen">Open the app again</button>';
+  ph.innerHTML=phone('SharedPrefDemo',body);
+  side.innerHTML='<h4 class="vpd-h">/data/data/…/shared_prefs/MyPrefs.xml</h4><pre class="val-code vpd-file">'+xml().map(l=>'<span class="ln">'+hlLine(l,'xml')+'</span>').join('')+'</pre><div class="vz-console">'+esc(log.slice(-4).join('\n'))+'</div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="close">Close app</button><button type="button" class="vz-btn" data-x="clear">Clear prefs</button></div>';
+  $$('[data-f]',ph).forEach(i=>i.addEventListener('input',()=>{screen[i.dataset.f]=i.value}));
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'',draw(i){A.reset();for(let k=0;k<=i;k++)if(S[k].a)A[S[k].a](S[k].v);render()},cap:i=>S[i].cap};
+};
+/* Storage chooser: four yes/no questions → the storage the instructor's decision guide recommends */
+Viz.storechooser=(c,o,ctl)=>{
+ const Q=[['small','Is it only a few small settings (name, theme, a flag)?'],['net','Must several users or devices share the data?'],['live','Must changes appear on other phones instantly (real time)?'],['php','Do you already have a PHP / web server and database?']];
+ const st={small:true,net:false,live:false,php:false};
+ const w=el('div','vsch');const qs=el('div','vsch-q');const out=el('div','vsch-out');w.appendChild(qs);w.appendChild(out);c.appendChild(w);
+ function pick(){if(!st.net)return st.small?['🗝️','SharedPreferences','Small settings on this phone only. (Lecture 8 — today)']:['🗃️','SQLite (or Room)','Structured records on this phone, offline. (Lecture 11)'];
+  if(st.live||!st.php)return['🔥','Firebase','Shared cloud data with real-time sync and no server to run. (Lecture 12)'];return['🖥️','MySQL + PHP','Shared data through your own web server. (Lecture 13)']}
+ function render(){qs.innerHTML=Q.map(([k,t])=>'<div class="vsch-row"><span>'+esc(t)+'</span><span class="vsch-yn"><button type="button" data-k="'+k+'" data-v="1" aria-pressed="'+st[k]+'">Yes</button><button type="button" data-k="'+k+'" data-v="0" aria-pressed="'+!st[k]+'">No</button></span></div>').join('');
+  const p=pick();out.innerHTML='<span class="vsch-ic">'+p[0]+'</span><div><b>'+esc(p[1])+'</b><small>'+esc(p[2])+'</small></div>';
+  $$('[data-k]',qs).forEach(b=>b.addEventListener('click',()=>{ctl.pause();st[b.dataset.k]=b.dataset.v==='1';render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap+' → **'+pick()[1]+'**'};
 };
 
 /* ---------- presentation ---------- */
@@ -730,7 +769,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');
