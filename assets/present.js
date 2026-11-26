@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=4';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=5';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -485,6 +485,21 @@ Viz.conveyor=(c,o)=>{
    if(s.t==='m')return'map: `it` is **'+K[s.k]+'** → becomes **'+M[s.k]+'**';return'sum() adds what is left: **'+M.reduce((a,b)=>a+b,0)+'**'}};
 };
 
+/* simplified Android Studio window: each step highlights one area (Project panel, editor, Layout Editor, Run, Device Manager, Logcat) */
+Viz.studio=(c,o)=>{
+ const code=o.code||'class MainActivity : AppCompatActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContentView(R.layout.activity_main)\n    }\n}';
+ c.innerHTML='<div class="vas" role="img" aria-label="Simplified drawing of the Android Studio window">'+
+  '<div class="vas-bar" data-p="toolbar"><span class="vas-dots" aria-hidden="true"><i></i><i></i><i></i></span><b>'+esc(o.project||'MyFirstApp')+'</b><span class="vas-dev" data-p2="device">📱 Medium Phone API 36 ▾</span><span class="vas-run" data-p2="run">▶ Run</span></div>'+
+  '<div class="vas-main"><div class="vas-proj" data-p="project"><b>Project</b><ul><li>📁 app</li><li class="i1">📁 manifests</li><li class="i2">📄 AndroidManifest.xml</li><li class="i1">📁 kotlin+java</li><li class="i2">📄 MainActivity.kt</li><li class="i1">📁 res</li><li class="i2">📁 layout</li><li class="i3">📄 activity_main.xml</li><li>🐘 Gradle Scripts</li></ul></div>'+
+  '<div class="vas-ed" data-p="editor"><div class="vas-tabs"><i class="on">MainActivity.kt</i><i>activity_main.xml</i></div><pre>'+code.split('\n').map(l=>hlLine(l,'kotlin')).join('\n')+'</pre></div>'+
+  '<div class="vas-prev" data-p="design"><b>Layout Editor</b><div class="vas-phone"><span>Hello, students!</span><i>Save</i></div></div></div>'+
+  '<div class="vas-log" data-p="logcat"><b>Logcat</b><span>D/MainActivity: onCreate called</span></div></div>';
+ const S=o.steps;const all=$$('[data-p],[data-p2]',c);
+ return{n:()=>S.length,note:o.note===undefined?'A simplified drawing. Real Android Studio has more buttons, but these areas are in the same places.':o.note,
+  draw(i){const k=S[i].p;all.forEach(e=>{const on=e.dataset.p===k||e.dataset.p2===k;e.classList.toggle('hl',on)});c.firstChild.classList.toggle('focus',!!k)},
+  cap:i=>S[i].cap};
+};
+
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
  play:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>',
@@ -591,7 +606,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');

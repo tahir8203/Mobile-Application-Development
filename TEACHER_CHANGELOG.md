@@ -39,7 +39,60 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=4` everywhere, and the service worker cache is now `mad-v4`.
+- **Cache:** `?v=5` everywhere, and the service worker cache is now `mad-v5`.
+- **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
+
+## Lecture 1: Introduction to Mobile Application Development
+
+**Slides: 23 → 36.** That is 32 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Intro to Mobile App Dev Lecture.pdf" (16 pages) and "Lecture 1.pdf" (8 pages, images only — read as pictures).
+
+### What changed
+
+- **Kotlin + XML, not Compose.** The old deck taught Jetpack Compose in 3 places: the `@Composable` code on the comparison slide, the toolbox card and the roadmap. Now:
+  - the comparison slide shows an XML layout vs HTML
+  - the toolbox lists XML, ViewBinding and ADB
+  - the roadmap lists XML + Material Components + ViewBinding
+  - Compose appears only as "a good next step after this course" (roadmap and "In 2026" slide)
+- **New slides from your PDF that the portal was missing:**
+  - why people prefer apps
+  - careers
+  - web apps (as their own type)
+  - Java → Kotlin history
+  - the Android Studio tour
+  - "UI design ≠ app logic" (XML vs Kotlin, with a live phone)
+  - the food-delivery decision slide
+- **New slides to explain words that were used but never taught:**
+  - what an operating system is
+  - the app sandbox
+  - your first look at an Android screen (MainActivity, onCreate, setContentView, Log.d / Logcat)
+- **Android history:** one short preview slide (6 versions), pointing to the full interactive timeline in Lecture 2. It is not repeated.
+- **73 defined terms** (70 of them used as tooltips on the slides), each with a plain meaning, why it exists and an analogy where possible. Examples: APK, AAB, DEX, HAL, ART, ADB, AVD, SDK, IDE, Gradle, Logcat, sandbox, WebView, PWA, Jetpack, ViewModel, Room, Retrofit, WorkManager. 46 of them were added to the portal glossary, which now has 150 terms.
+- **Course Outline links:** "Brief introduction of Android OS" now opens "What is Android?", and "Brief introduction of Android Studio" opens the Android Studio tour.
+
+### Verification
+
+- **Kotlin:** "Welcome to Mobile App Development!" was compiled and run with Kotlin 2.2.21.
+- **Android screen code:** type-checked with stand-in Android classes. It prints the Logcat line shown on the slide.
+- **XML:** the comparison XML is well-formed. The XML on the live-phone slide is a short teaching fragment; its caption says that real files also need a width and height on every view.
+- **Browser tests:**
+  - All 36 slides open with no errors, and every animation steps to the end.
+  - No slide scrolls sideways at 360px.
+  - Lecture 2 and all portal pages were re-tested after the engine change.
+
+### Corrections to your PDF
+
+1. **"3B+ Android users":** Google's own figure was about **active devices**, not users: "more than 3 billion active Android devices", announced at Google I/O in May 2021. **UNVERIFIED** — I did not find the official page this session. A secondary source (Wikipedia) now says about 4 billion users. The slide avoids an exact number; the notes give the figure with "please confirm".
+2. **Architecture:** your PDF shows 4 layers (Apps, ART, Libraries, Kernel). The official Android diagram has 6: it adds the Hardware Abstraction Layer and the Java API Framework. The slide uses 6 and keeps your university analogy.
+3. **Version table:**
+   - Oreo's main developer change was notification channels and background limits, not only "faster performance".
+   - Android 11 = conversation bubbles **and** one-time permissions.
+   - Android 13 = notification permission + photo picker.
+   - The table stopped at Android 14; Android 15, 16 and 17 have since been released.
+4. **Web apps "require internet":** true for most, but Progressive Web Apps can work offline. This portal is one.
+5. **Facebook as a native example:** the Facebook app is mostly native, but Meta also uses its own React Native in parts. WhatsApp is used instead.
+6. **"Uber (older versions) was Hybrid":** I could not confirm this from a reliable source, so it is not used.
+7. **Flutter vs React Native "Performance: High vs Moderate":** both can be fast today; it depends on the app. The slide does not rank them.
+8. **Java "by Sun Microsystems":** correct originally, but Oracle owns Java today. This is in the notes.
 
 ## Lecture 2: Kotlin Language Fundamentals
 
