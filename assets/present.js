@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=16';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=17';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -892,6 +892,64 @@ Viz.xampp=(c,o,ctl)=>{
  const S=o.script;
  return{n:()=>S.length,note:'sim',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
 };
+/* Audio focus: a music app on a phone reacts to a call, a notification and a second music app. */
+Viz.focuslab=(c,o,ctl)=>{
+ const w=el('div','vfo');c.appendChild(w);let st;
+ const reset=()=>{st={playing:true,vol:70,duck:false,holder:'Music app',log:['AUDIOFOCUS_GAIN → music app plays'],other:null}};
+ const A={
+  call(){st.holder='Phone call';st.playing=false;st.log.push('AUDIOFOCUS_LOSS_TRANSIENT → pause');st.other='📞 Incoming call'},
+  endcall(){st.holder='Music app';st.playing=true;st.other=null;st.log.push('AUDIOFOCUS_GAIN → resume')},
+  notify(){st.duck=true;st.other='🔔 Notification sound';st.log.push('…_CAN_DUCK → volume lowered (the system ducks automatically on Android 8+)')},
+  undock(){st.duck=false;st.other=null;st.log.push('notification over → full volume again')},
+  app2(){st.holder='Another music app';st.playing=false;st.other='🎵 Another music app';st.log.push('AUDIOFOCUS_LOSS → stop (Android 12+ fades the old app out)')}};
+ function render(){const v=st.duck?Math.round(st.vol*.3):st.vol;
+  w.innerHTML='<div class="vfo-ph">'+phone('Music app','<div class="w-text vfo-big">'+(st.playing?'▶ Playing':'⏸ Paused')+'</div><div class="vfo-vol"><span style="width:'+(st.playing?v:0)+'%"></span></div><div class="w-text" style="font-size:.8em">STREAM_MUSIC '+st.vol+'%'+(st.duck?' (ducked to '+v+'%)':'')+'</div>'+(st.other?'<div class="vfo-other">'+esc(st.other)+'</div>':''))+'</div><div class="vfo-side"><div class="vfo-h">Audio focus holder: <b>'+esc(st.holder)+'</b></div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="call">📞 Call</button><button type="button" class="vz-btn" data-x="endcall">✅ End call</button><button type="button" class="vz-btn" data-x="notify">🔔 Notification</button><button type="button" class="vz-btn" data-x="undock">↩ Notification over</button><button type="button" class="vz-btn" data-x="app2">🎵 Other music app</button></div><label class="vfo-sl">Volume <input type="range" min="0" max="100" value="'+st.vol+'" data-v></label><div class="vz-console">'+esc(st.log.slice(-4).join('\n'))+'</div></div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}));
+  const r=$('[data-v]',w);r.addEventListener('input',()=>{ctl.pause();st.vol=+r.value;render()})}
+ const S=o.script;
+ return{n:()=>S.length,note:'sim',draw(i){reset();for(let k=0;k<=i;k++)if(S[k].a)A[S[k].a]();render()},cap:i=>S[i].cap};
+};
+/* MediaPlayer state machine: press the method buttons; wrong state → IllegalStateException, as in the official state diagram. */
+Viz.mpstate=(c,o,ctl)=>{
+ const T={Idle:{setDataSource:'Initialized',reset:'Idle',release:'End'},Initialized:{prepare:'Prepared',reset:'Idle',release:'End'},
+  Prepared:{start:'Started',stop:'Stopped',reset:'Idle',release:'End'},Started:{start:'Started',pause:'Paused',stop:'Stopped',reset:'Idle',release:'End'},
+  Paused:{start:'Started',pause:'Paused',stop:'Stopped',reset:'Idle',release:'End'},Stopped:{prepare:'Prepared',stop:'Stopped',reset:'Idle',release:'End'},
+  Error:{reset:'Idle',release:'End'},End:{}};
+ const M=['setDataSource','prepare','start','pause','stop','reset','release'];const ORDER=['Idle','Initialized','Prepared','Started','Paused','Stopped','End'];
+ const w=el('div','vms');c.appendChild(w);let s='Idle',log=[];
+ const call=m=>{const n=T[s][m];if(n){log.push(m+'()  '+s+' → '+n);s=n}else{log.push(m+'() in '+s+' → '+(s==='End'?'IllegalStateException (already released)':'IllegalStateException')); if(s!=='End')s='Error'}};
+ function render(){w.innerHTML='<div class="vms-states">'+ORDER.concat(s==='Error'?['Error']:[]).map(x=>'<span class="vms-s'+(x===s?' on':'')+(x==='Error'?' err':'')+'">'+x+'</span>').join('')+'</div><div class="vpd-acts">'+M.map(m=>'<button type="button" class="vz-btn" data-m="'+m+'">'+m+'()</button>').join('')+'</div><div class="vz-console">'+esc(log.slice(-5).join('\n')||'new MediaPlayer() → Idle')+'</div>';
+  $$('[data-m]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();call(b.dataset.m);render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){s='Idle';log=[];(S[i].calls||[]).forEach(call);render()},cap:i=>S[i].cap};
+};
+/* Storage: private internal files, app-specific external files, and shared MediaStore — then uninstall. */
+Viz.storagelab=(c,o,ctl)=>{
+ const w=el('div','vsl');c.appendChild(w);let st;
+ const reset=()=>{st={internal:[],external:[],shared:['Recording 01.m4a (shared Music)'],gone:false}};
+ const A={int(){if(st.gone)return;st.internal.push('note'+(st.internal.length+1)+'.txt')},ext(){if(st.gone)return;st.external.push('REC_'+(st.external.length+1)+'.m4a')},uninstall(){st.internal=[];st.external=[];st.gone=true},reinstall(){st.gone=false}};
+ const box=(title,path,files,cls,note)=>'<div class="vsl-box '+cls+'"><b>'+title+'</b><code>'+esc(path)+'</code><div class="vsl-files">'+(files.length?files.map(f=>'<span>📄 '+esc(f)+'</span>').join(''):'<em>empty</em>')+'</div><small>'+note+'</small></div>';
+ function render(){w.innerHTML='<div class="vsl-grid">'+box('🔒 Internal (“ROM”)','/data/data/com.example.audioapp/files/',st.internal,'in','private · no permission · deleted on uninstall')+box('📦 App-specific external (“SD card”)','/Android/data/com.example.audioapp/files/recordings/',st.external,'ex','no permission · user can browse · deleted on uninstall')+box('🎵 Shared storage (MediaStore)','Music/',st.shared,'sh','for files the user keeps · stays after uninstall')+'</div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="int">💾 Save → internal</button><button type="button" class="vz-btn" data-x="ext">💾 Save → external</button><button type="button" class="vz-btn" data-x="'+(st.gone?'reinstall':'uninstall')+'">'+(st.gone?'📲 Install again':'🗑️ Uninstall app')+'</button></div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'sim',draw(i){reset();(S[i].a||[]).forEach(a=>A[a]());render()},cap:i=>S[i].cap};
+};
+/* A real voice recorder in the browser (getUserMedia + MediaRecorder), mirroring Android's flow: permission → record → file → play. */
+Viz.micrec=(c,o,ctl)=>{
+ const w=el('div','vmr');c.appendChild(w);let rec=null,chunks=[],stream=null,t0=0,timer=0,clips=[];
+ const ok=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+ w.innerHTML='<div class="vmr-row"><button type="button" class="vz-btn vmr-rec">⏺ Allow mic &amp; record</button><button type="button" class="vz-btn vmr-stop" disabled>⏹ Stop</button><span class="vmr-time">00:00</span></div><div class="vz-console vmr-st">'+(ok?'state: idle — the browser will ask for the microphone, like Android’s RECORD_AUDIO dialog':'This browser cannot record here. On Android, the same steps run in MediaRecorder.')+'</div><div class="vmr-list"></div>';
+ const bRec=$('.vmr-rec',w),bStop=$('.vmr-stop',w),tm=$('.vmr-time',w),stl=$('.vmr-st',w),list=$('.vmr-list',w);if(!ok)bRec.disabled=true;
+ const say=s=>stl.textContent=s;
+ function stopAll(){if(rec&&rec.state!=='inactive')rec.stop();clearInterval(timer);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}bRec.disabled=!ok;bStop.disabled=true}
+ bRec.addEventListener('click',async()=>{ctl.pause();try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e){say('permission denied or no microphone — like denying RECORD_AUDIO: the app must not record');return}
+  chunks=[];rec=new MediaRecorder(stream);rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  rec.onstop=()=>{if(!chunks.length){say('stopped too soon — no data (Android: stop() throws, delete the file)');return}const blob=new Blob(chunks,{type:rec.mimeType||'audio/webm'});const url=URL.createObjectURL(blob);clips.push(url);const n=clips.length;
+   const row=el('div','vmr-clip','<span>🎧 REC_'+n+' · '+Math.round(blob.size/1024)+' KB</span>');const au=document.createElement('audio');au.controls=true;au.src=url;row.appendChild(au);list.prepend(row);say('saved REC_'+n+' — tap ▶ to play it back (MediaPlayer on Android)')};
+  rec.start();t0=Date.now();timer=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);tm.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},250);bRec.disabled=true;bStop.disabled=false;say('state: recording… (MediaRecorder.start())')});
+ bStop.addEventListener('click',()=>{stopAll()});
+ return{n:()=>1,note:'',draw(){},cap:()=>o.cap||'Press record, speak, stop, then play your clip.',destroy(){stopAll();clips.forEach(u=>URL.revokeObjectURL(u))}};
+};
 
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -999,7 +1057,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','roundtrip','rowsjson','threadlab','xampp','jsontree','rtsync','authflow','rulescheck','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','focuslab','mpstate','storagelab','roundtrip','rowsjson','threadlab','xampp','jsontree','rtsync','authflow','rulescheck','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');

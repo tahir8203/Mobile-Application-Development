@@ -39,9 +39,93 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=16` everywhere, and the service worker cache is now `mad-v16`.
+- **Cache:** `?v=17` everywhere, and the service worker cache is now `mad-v17`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 14: Audio Management in Android
+
+**Slides: 34 in total.** That is 30 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 14 _Audio_Management_Android.html", in its order:
+1. AudioManager & audio focus
+2. Playing (MediaPlayer)
+3. Recording (MediaRecorder)
+4. ROM & SD card
+5. The complete AudioRecorderPlayerApp
+6. Test Yourself (your 5 questions + 1)
+
+Your notes were already modern (MediaRecorder(Context), getExternalFilesDir, Android 8 focus API), so the changes are mostly fixes and widgets.
+
+### What changed
+
+- **Four new live widgets:**
+  - **Audio focus phone** (`focuslab`): a music app reacts to a call (LOSS_TRANSIENT → pause/resume), a notification (ducked) and another music app (LOSS → stop), with a volume slider and a log of the focus constants.
+  - **MediaPlayer state machine** (`mpstate`): buttons for setDataSource / prepare / start / pause / stop / reset / release. Illegal calls throw IllegalStateException, as in the official state diagram (e.g. start() after stop()).
+  - **Storage drawers** (`storagelab`): internal (filesDir), app-specific external (getExternalFilesDir) and shared (MediaStore). "Uninstall" shows that both app folders are deleted and only shared files stay.
+  - **Real browser recorder** (`micrec`, as in your notes): asks for the microphone, records, saves a clip and plays it back. It is released when you leave the slide.
+- **The code was split into small classes:** AudioFocusHelper, SimplePlayer, VoiceRecorder and StorageExample. The complete MainActivity is shown in three parts (setup/volume/list, recording, playback/clean-up) and uses VoiceRecorder.
+- **New slides:**
+  - AudioManager & streams
+  - request *and abandon* focus
+  - the "new player on every tap" mistake
+  - audio and the life cycle
+  - the recording recipe
+  - recording in the background
+  - how to run the app
+  - MediaPlayer vs Media3 ExoPlayer
+- **30 defined terms.** Examples: AudioManager, audio stream, STREAM_MUSIC, audio focus, AudioFocusRequest, ducking, AUDIOFOCUS_LOSS_TRANSIENT, MediaPlayer, state machine, setDataSource, prepare(), release(), IllegalStateException, SoundPool, MediaRecorder, RECORD_AUDIO, AAC, foreground service, internal/external storage, getExternalFilesDir, filesDir, MediaStore, Media3 ExoPlayer. 24 were added to the portal glossary, which now has 540 terms.
+- **Cache:** `?v=17` / `mad-v17`.
+- **Course Outline:** all 4 Lecture 14 topics already land on matching slides.
+
+### Verification
+
+- **Kotlin:** all 7 Kotlin code slides were taken straight from the deck and compiled together with Kotlin 2.2.21 against stand-in classes. The stand-in MediaPlayer follows the official state diagram and throws on illegal calls. The stand-in MediaRecorder checks the setup order and writes a real file. Simulated:
+  - **Audio focus:** play → granted; a call pauses; focus regained resumes; stop abandons focus with the same request.
+  - **SimplePlayer:** play/pause/resume; three plays leave only **one** live player; stop → none; start() after stop() → IllegalStateException.
+  - **VoiceRecorder:** a normal stop saves the file; an immediate stop returns false and deletes it; the wrong order throws.
+  - **MainActivity:**
+    - the volume slider sets STREAM_MUSIC
+    - Play with no recording, mic denied, recording state of the buttons
+    - saved / "too short, not saved", list size
+    - play, seek, pause/resume, completion (player released, SeekBar reset, no pending ticks)
+    - tapping a list item, a damaged file → "cannot play this file"
+    - Home while recording → saved
+- **StorageExample ran for real** on the JVM with real files, including "external storage unavailable" (null) handled without a crash.
+- **XML:** the manifest and the layout are well-formed. `paddingVertical` (API 26+) was replaced by top/bottom padding for minSdk 24.
+- **Browser:**
+  - no script errors, and all 34 slides have no sideways scrolling at 360 px
+  - the focus, state-machine and storage widgets were tested by script
+  - **A bug was found and fixed:** the state-machine and storage widgets replayed earlier steps on top of each step.
+  - The recorder's idle state was checked; actual recording needs a microphone and your permission, so it was not pressed.
+  - Lecture 12–13 widgets were re-checked.
+- **Facts checked on developer.android.com (26 Nov 2026):**
+  - **Manage audio focus:**
+    - automatic ducking since Android 8.0
+    - Android 12+ "forces the playing app to fade out"
+    - apps targeting Android 15 can request focus only as the top app or with a foreground service
+    - abandonAudioFocusRequest with the same AudioFocusRequest
+    - ExoPlayer can manage focus for you
+  - **MediaRecorder:**
+    - MediaRecorder() deprecated → MediaRecorder(Context) (API 31)
+    - stop() right after start() throws a RuntimeException so the app can delete the file
+  - **Foreground service types:** microphone, FOREGROUND_SERVICE_MICROPHONE, and it cannot be started from the background.
+  - **Context.getExternalFilesDir:**
+    - no permission since KitKat
+    - deleted on uninstall
+    - "May return null if shared storage is not currently available"
+  - **Media3:** 1.11.1 stable.
+
+### Corrections to your notes
+
+1. **PlayAudioExample leaked players:** playFromResource/playFromFile overwrote `player` without releasing the old one. Now every play releases the previous player, and stop() just calls release() (allowed in every state).
+2. **Recording that stopped too soon:** your notes catch the RuntimeException but keep the broken file and still say "saved". Google says to delete the output file; VoiceRecorder.stop() now returns false, deletes the file, and the status says "too short, not saved".
+3. **Audio focus was requested but never given back:** abandonAudioFocusRequest() was added. CAN_DUCK handling was dropped because Android 8+ ducks automatically. The slides mention Android 12's fade-out and Android 15's rule.
+4. **`onRequestPermissionsResult` + REQUEST_MIC:** deprecated since activity 1.2.0. Uses the permission launcher (Lecture 6).
+5. **WRITE_EXTERNAL_STORAGE (maxSdkVersion 28) in the manifest:** not needed. The app only writes to getExternalFilesDir(), which needs no permission since Android 4.4, and minSdk is 24.
+6. **`getExternalFilesDir("recordings")!!`:** it can return null, so `?.` is used, with a fallback to filesDir.
+7. **A damaged file crashed prepare():** it now catches IOException, releases the new player and shows a message.
+8. **The SeekBar Handler** kept posting after the screen was gone. It now uses one Runnable that is removed in stopPlayback().
+9. **onStop() only released the recorder:** it now stops and saves (or deletes) the recording properly.
+10. **"ROM":** kept as the outline's word for internal storage, with a note that the files actually live in internal flash storage (ROM proper is read-only system memory).
 
 ## Lecture 13: MySQL, PHP & Android
 
