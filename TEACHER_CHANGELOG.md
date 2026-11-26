@@ -39,8 +39,67 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=6` everywhere, and the service worker cache is now `mad-v6`.
+- **Cache:** `?v=7` everywhere, and the service worker cache is now `mad-v7`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
+
+## Lecture 4: Android Views — XML + Kotlin
+
+**Slides: 26 → 36.** That is 32 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 4.docx" (Steps 0–10). The slides follow the same step order.
+
+### What changed
+
+- **Compose removed.** "The same screen in Jetpack Compose" and "Compose state in action" are gone, and the "In 2026" slide no longer shows Compose code. XML is no longer labelled "Legacy".
+- **findViewById first, then ViewBinding.** Your complete MainActivity (package, imports, findViewById) is explained line by line. Then ViewBinding does the same job more safely, and every later slide uses `binding.viewId`. The old deck used undeclared view names such as `btnDelete` and `tvStatus`; every snippet now uses ids that exist in the layout.
+- **New live widgets:**
+  - **Layout lab** (`attrlab`): change orientation, gravity, textSize, button width and layout_weight. The XML and the phone update together, and changed lines turn green. Weights are exact: 1:1 equal, and 1:2 exactly double, both horizontally and vertically (measured in the browser).
+  - **Auto-complete demo** (`autocomplete`): type, change the threshold, and tap a suggestion. It uses ArrayAdapter's matching rule: an item matches if it, or one of its words, starts with the typed text, ignoring capitals.
+  - The "Try the click" phone is kept.
+- **New slides:**
+  - size (wrap_content / match_parent / dp)
+  - the core flow (XML → id → find → variable → screen)
+  - events and listeners
+  - Toast vs Snackbar vs AlertDialog
+  - what an adapter is
+  - your final concept map
+  - two mistake slides (toInt crash; forgetting setContentView or `.show()`)
+  - a homework app that combines Steps 3–10
+- **75 defined terms.** Examples: View/ViewGroup, xmlns, app namespace, gravity, padding/margin, layout_weight, constraint, generic type, import, package, event, listener, main thread, Context, `this`, builder, method chaining, `_` parameters, `finish()`, adapter, threshold, `android.R.layout.simple_list_item_1`, RecyclerView. 36 were added to the portal glossary, which now has 235 terms.
+- **Engine:**
+  - the attribute lab and the auto-complete widget were added
+  - the phone widget's text boxes support grey hints and number keyboards
+  - cache is now `?v=7` / `mad-v7`
+- **Course Outline:** all 12 Lecture 4 topics land on the matching slides.
+
+### Verification
+
+- **Kotlin snippets:** all 9 were compiled with Kotlin 2.2.21 against stand-in Android classes. Taps were simulated with these results:
+  - findViewById version → "Welcome Students"
+  - greet with "Ali" → "Hello Ali"
+  - long click returning true → "Long Click Detected"
+  - Toast → "Welcome!"
+  - dialog "Yes" → `finish()` called
+  - AutoCompleteTextView threshold → 1
+  - ListView row 2 → "You tapped Sara"
+  - calculator 5 + 3 → "Result: 8"; empty box → "Enter valid numbers" Toast
+- **XML:** every XML snippet is well-formed, including the XML written inside comments.
+- **Browser tests:**
+  - All 36 slides open with no errors, and every animation steps to the end.
+  - No slide scrolls sideways at 360px.
+  - Lectures 1–3 and all portal pages were re-tested.
+- **Not checked by running Android:** the stand-in classes model these rules, which come from Android's documented behaviour; please confirm them on a real phone in class:
+  - a long-click lambda returning false lets the normal click run too
+  - AutoCompleteTextView's default threshold is 2
+
+### Corrections to your notes
+
+1. **AutoCompleteTextView "Typing P → Pakistan appears":** only true with `threshold = 1`. The default threshold is 2 letters, so the slide adds `binding.autoText.threshold = 1`, and the demo shows both.
+2. **AlertDialog "Yes → closes app":** `finish()` closes the current **screen**. With one screen the user lands on the home screen, but the app's process may stay alive for a while.
+3. **"onCreate() runs when app starts":** it runs when **this screen** is created; a second screen has its own `onCreate`.
+4. **"Bundle → stores data when activity starts":** it holds the saved state when the screen is re-created (for example after a rotation), and is null the first time.
+5. **Long click `true`** was in your code but not explained. The slide explains it (handled, so the normal click does not also run) and suggests changing it to `false` as an experiment.
+6. **`gravity="center"`** was in your base layout but not explained. It is explained now, and it can be tried in the layout lab.
+7. **Output typo:** "IHello Ali" → "Hello Ali".
+8. **Old portal slide:** the ConstraintLayout example had no `xmlns:android` / `xmlns:app`, so its `app:` attributes would not build. Fixed.
 
 ## Lecture 3: Android Development Environment & First App
 

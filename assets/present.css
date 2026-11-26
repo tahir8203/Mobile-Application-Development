@@ -525,3 +525,22 @@ body.pz-open{overflow:hidden}
 .vas.focus .vas-bar:has(.hl){opacity:1}
 @media (max-width:760px){.vas-main{grid-template-columns:minmax(0,1fr)}.vas-proj,.vas-ed,.vas-prev{border-right:0;border-bottom:1px solid #393b40}.vas-phone{height:7em}}
 @media (prefers-reduced-motion:reduce){.vas [data-p],.vas [data-p2]{transition:none}}
+
+/* attribute lab + autocomplete */
+.val,.vac{display:flex;flex-direction:column;gap:.55rem;min-width:0}
+.val-form,.vac-form{display:flex;flex-wrap:wrap;gap:.45rem}
+.val-form label,.vac-form label{display:flex;flex-direction:column;font-size:.78em;color:var(--mu);gap:.15rem}
+.val-form select,.vac-form select{min-height:44px;border:1px solid var(--line);background:var(--panel-2);color:var(--tx);border-radius:10px;padding:0 .4em;font:inherit;font-size:.95rem}
+.val-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr);gap:.6rem;align-items:start;min-width:0}
+.val-code{margin:0;background:var(--codebg);color:#e2e8f0;border-radius:12px;padding:.5rem 0;overflow:auto;max-height:20em;font-family:var(--mono,ui-monospace,monospace);font-size:.78em;line-height:1.5;font-variant-ligatures:none}
+.val-code .ln{display:block;padding:0 .7em;white-space:pre;border-left:3px solid transparent}
+.val-code .ln.on{background:rgba(52,211,153,.2);border-left-color:var(--ok)}
+.val-root{display:flex;gap:.45em;height:100%;min-height:12em;padding:.2em}
+.val-root .w-btn{white-space:nowrap}
+.vac-box{position:relative;display:flex;flex-direction:column}
+.vac-list{list-style:none;margin:0;padding:0;border:1px solid #cbd5e1;border-top:0;background:#fff;border-radius:0 0 8px 8px;max-height:9em;overflow:auto}
+.vac-list:empty{display:none}
+.vac-list button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #e2e8f0;padding:.55em .5em;min-height:40px;color:#0f172a;font:inherit;cursor:pointer}
+.vac-list button:hover,.vac-list button:focus-visible{background:#e0f2fe}
+.vac-out{margin-top:.5em;color:#047857;font-weight:700}
+@media (max-width:760px){.val-grid{grid-template-columns:minmax(0,1fr)}.val-code{max-height:12em}}

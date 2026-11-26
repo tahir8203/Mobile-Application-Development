@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=6';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=7';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -500,6 +500,54 @@ Viz.studio=(c,o)=>{
   cap:i=>S[i].cap};
 };
 
+/* XML attribute lab: change orientation, gravity, textSize, button width and layout_weight; the XML and the phone update together */
+Viz.attrlab=(c,o,ctl)=>{
+ const st=Object.assign({ori:'vertical',grav:'center',size:22,bw:'wrap_content',weight:'none'},o.start||{});
+ const w=el('div','val');
+ const f=el('div','val-form',
+  '<label>orientation<select data-k="ori"><option>vertical</option><option>horizontal</option></select></label>'+
+  '<label>gravity<select data-k="grav"><option>start</option><option>center</option><option>end</option></select></label>'+
+  '<label>textSize<select data-k="size"><option>14</option><option>18</option><option>22</option><option>28</option></select></label>'+
+  '<label>button width<select data-k="bw"><option>wrap_content</option><option>match_parent</option></select></label>'+
+  '<label>layout_weight<select data-k="weight"><option value="none">none</option><option value="11">1 : 1</option><option value="12">1 : 2</option></select></label>');
+ const grid=el('div','val-grid');const code=el('pre','val-code');code.tabIndex=0;code.setAttribute('aria-label','XML that matches the phone');
+ const ph=el('div','val-ph');grid.appendChild(code);grid.appendChild(ph);w.appendChild(f);w.appendChild(grid);c.appendChild(w);
+ const S=$$('select',f);let prev=null;
+ function xml(){const wt=st.weight!=='none',hz=st.ori==='horizontal',bw=wt?'0dp':st.bw;const dim=hz?'layout_width':'layout_height';
+  const btn=(id,txt,wv)=>['    <Button','        android:id="@+id/'+id+'"','        android:layout_width="'+(wt&&hz?'0dp':st.bw)+'"','        android:layout_height="'+(wt&&!hz?'0dp':'wrap_content')+'"',(wt?'        android:layout_weight="'+wv+'"':null),'        android:text="'+txt+'" />'].filter(x=>x!==null);
+  return ['<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"','    android:layout_width="match_parent"','    android:layout_height="match_parent"','    android:orientation="'+st.ori+'"','    android:gravity="'+st.grav+'"','    android:padding="16dp">','','    <TextView','        android:id="@+id/txtHello"','        android:layout_width="wrap_content"','        android:layout_height="wrap_content"','        android:text="Hello"','        android:textSize="'+st.size+'sp" />','']
+   .concat(btn('btnOne','One',1),btn('btnTwo','Two',st.weight==='12'?2:1)).concat(['</LinearLayout>'])}
+ function render(){S.forEach(s=>{s.value=String(st[s.dataset.k])});const L=xml();
+  code.innerHTML=L.map((l,k)=>'<span class="ln'+(prev&&prev[k]!==l?' on':'')+'">'+(hlLine(l,'xml')||' ')+'</span>').join('');prev=L;
+  const hz=st.ori==='horizontal',wt=st.weight!=='none',al={start:'flex-start',center:'center',end:'flex-end'}[st.grav];
+  const bstyle=k=>wt?'flex:'+(k===2&&st.weight==='12'?2:1)+' 1 0;overflow:hidden;'+(hz?'min-width:0;padding-left:0;padding-right:0':'min-height:0;padding-top:0;padding-bottom:0'):(st.bw==='match_parent'?(hz?'flex:1 1 auto':'align-self:stretch'):'');
+  ph.innerHTML=phone('My App','<div class="val-root" style="flex-direction:'+(hz?'row':'column')+';justify-content:'+al+';align-items:'+al+'"><div class="w-text" style="font-size:'+(st.size/16)+'em">Hello</div><button type="button" class="w-btn" style="'+bstyle(1)+'">One</button><button type="button" class="w-btn" style="'+bstyle(2)+'">Two</button></div>')}
+ S.forEach(s=>s.addEventListener('change',()=>{const k=s.dataset.k;st[k]=k==='size'?+s.value:s.value;ctl.pause();render()}));
+ const steps=o.steps||[];render();
+ return{n:()=>steps.length,note:'',
+  draw(i){Object.assign(st,steps[i].set||{});render()},
+  cap:i=>steps[i].cap};
+};
+/* AutoCompleteTextView: suggestions appear after `threshold` letters, matching the start of an item (or of a word in it), ignoring case */
+Viz.autocomplete=(c,o,ctl)=>{
+ const items=o.items;let th=o.threshold||2;
+ const w=el('div','vac');
+ const f=el('div','vac-form','<label>threshold<select><option value="1">1</option><option value="2">2 (default)</option><option value="3">3</option></select></label>');
+ const body='<div class="vac-box"><input class="w-edit" type="text" placeholder="'+esc(o.hint||'Enter country')+'" aria-label="'+esc(o.hint||'Enter country')+'" autocomplete="off"><ul class="vac-list" role="listbox"></ul></div><div class="w-text vac-out"></div>';
+ const ph=el('div');ph.innerHTML=phone(o.app||'Countries',body);w.appendChild(f);w.appendChild(ph);c.appendChild(w);
+ const inp=$('input',ph),list=$('.vac-list',ph),out=$('.vac-out',ph),sel=$('select',f);sel.value=String(th);
+ const match=t=>{const q=t.toLowerCase();return items.filter(x=>x.toLowerCase().startsWith(q)||x.toLowerCase().split(/\s+/).some(wd=>wd.startsWith(q)))};
+ function show(){const t=inp.value;const L=t.length>=th?match(t):[];list.innerHTML=L.map(x=>'<li role="option"><button type="button">'+esc(x)+'</button></li>').join('');
+  $$('button',list).forEach(b=>b.addEventListener('click',()=>{inp.value=b.textContent;list.innerHTML='';out.textContent='Selected: '+b.textContent}));
+  return L}
+ inp.addEventListener('input',()=>{ctl.pause();out.textContent='';show()});
+ sel.addEventListener('change',()=>{th=+sel.value;show()});
+ const steps=o.steps||[];
+ return{n:()=>steps.length,note:'',
+  draw(i){const s=steps[i];if(s.threshold){th=s.threshold;sel.value=String(th)}inp.value=s.type||'';out.textContent='';const L=show();this._n=L.length},
+  cap(i){const s=steps[i],t=s.type||'',L=t.length>=th?match(t):[];return s.cap+(t?' — typed **"'+t+'"** ('+t.length+' letter'+(t.length===1?'':'s')+', threshold '+th+'): '+(L.length?L.length+' suggestion'+(L.length>1?'s':''):'**no suggestions**'):'')}};
+};
+
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
  play:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>',
@@ -606,7 +654,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');
