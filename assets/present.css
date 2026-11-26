@@ -754,3 +754,48 @@ body.pz-open{overflow:hidden}
 @media (prefers-reduced-motion:reduce){.vjt-li.hl,.vrs-srv.flash,.vaf-toast{animation:none}}
 .vrs .phone{aspect-ratio:auto;min-height:13em}
 @media (max-width:760px){.vrs .phone{max-width:16em;min-height:10em}}
+
+/* Round trip, rows→JSON, thread lab, XAMPP panel (Lecture 13) */
+.vrt{display:flex;flex-direction:column;gap:.7rem}
+.vrt-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(1.5em,.5fr) minmax(0,1fr) minmax(1.5em,.5fr) minmax(0,1fr);align-items:center;gap:.3rem}
+.vrt-node{display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.6rem .3rem;border:2px solid var(--line);border-radius:14px;background:var(--bg);text-align:center;min-width:0;transition:border-color .3s,box-shadow .3s}
+.vrt-node span{font-size:1.6em}.vrt-node b{font-size:.78em;overflow-wrap:anywhere}
+.vrt-node.on{border-color:var(--cyan);box-shadow:0 0 0 4px rgba(34,211,238,.18)}
+.vrt-th{font-size:.62em;padding:.1em .45em;border-radius:999px}
+.vrt-th.ui{background:rgba(96,165,250,.2);color:#93c5fd}.vrt-th.bg{background:rgba(52,211,153,.2);color:var(--ok)}
+.vrt-ar{position:relative;height:4px;background:var(--line);border-radius:2px}
+.vrt-ar.hot{background:var(--cyan)}
+.vrt-ar.hot i{position:absolute;top:-5px;left:0;width:14px;height:14px;border-radius:50%;background:#f59e0b;animation:vrt-go 1.1s ease-in-out infinite}
+.vrt-ar.hot.back i{animation-direction:reverse}
+@keyframes vrt-go{from{left:0}to{left:calc(100% - 14px)}}
+.vrt-pk{border:1px solid var(--line);border-radius:12px;padding:.5rem .6rem;background:var(--bg)}
+.vrt-lab{font-size:.78em;color:var(--mu);margin-bottom:.3rem}
+.vrt-pk .val-code{font-size:.74em;white-space:pre-wrap;overflow-wrap:anywhere}
+.vrj{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;align-items:start}
+.vrj-l,.vrj-r{display:flex;flex-direction:column;gap:.45rem;min-width:0}
+.vrj-h{font-size:.78em;color:var(--mu);font-family:var(--mono,monospace)}
+.vrj-r .val-code{font-size:.72em}
+.vrj-done td{color:var(--mu)}.vrj-new td{background:rgba(52,211,153,.16);color:var(--tx)}
+.vtl2{display:flex;flex-direction:column;gap:.55rem}
+.vtl2-mode{font-weight:700}
+.vtl2-lane{display:grid;grid-template-columns:8.5em minmax(0,1fr);gap:.5rem;align-items:center}
+.vtl2-lane b{font-size:.75em;color:var(--mu)}
+.vtl2-track{position:relative;height:2.2em;border-radius:10px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.vtl2-b{position:absolute;top:.25em;bottom:.25em;border-radius:7px;font-size:.62em;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 .3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;animation:vtl2-in .5s ease}
+.vtl2-b.ui{background:#2563eb}.vtl2-b.net{background:#059669}.vtl2-b.bad{background:#dc2626}.vtl2-b.wait{background:#475569}
+@keyframes vtl2-in{from{opacity:0;transform:scaleX(.6)}}
+.vxp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;align-items:start}
+.vxp-panel{border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:.6rem;display:flex;flex-direction:column;gap:.5rem}
+.vxp-h{font-weight:700;font-size:.85em}
+.vxp-svc{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.5rem;align-items:center}
+.vxp-svc small{display:block;color:var(--mu);font-size:.75em}
+.vxp-dot{width:.9em;height:.9em;border-radius:50%;background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.2)}
+.vxp-dot.on{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.25)}
+.vxp-urls{display:flex;flex-direction:column;gap:.4rem;min-width:0}
+.vxp-u{border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:.4rem .55rem}
+.vxp-u.ok{border-left-color:#16a34a}.vxp-u.bad{border-left-color:#dc2626}
+.vxp-u code{display:block;font-size:.72em;overflow-wrap:anywhere}.vxp-u small{color:var(--mu);font-size:.75em}
+@media (max-width:760px){.vrj,.vxp{grid-template-columns:minmax(0,1fr)}.vrt-row{grid-template-columns:minmax(0,1fr)}.vrt-ar{height:1.6em;width:4px;justify-self:center}.vrt-ar.hot i{left:-5px;top:0;animation-name:vrt-go-v}.vtl2-lane{grid-template-columns:minmax(0,1fr)}}
+@keyframes vrt-go-v{from{top:0}to{top:calc(100% - 14px)}}
+@media (prefers-reduced-motion:reduce){.vrt-ar.hot i,.vtl2-b{animation:none}}
+.vrt-pk .val-code .ln{white-space:pre-wrap;overflow-wrap:anywhere}

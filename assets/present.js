@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=15';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=16';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -857,6 +857,41 @@ Viz.rulescheck=(c,o,ctl)=>{
  const S=o.script;
  return{n:()=>S.length,note:'logic',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
 };
+/* Round trip: phone → PHP → MySQL → PHP → phone, one hop per step, with the real payload of each hop. */
+Viz.roundtrip=(c,o)=>{
+ const N=[['📱','Android app'],['🐘','PHP on Apache'],['🗄️','MySQL']];const w=el('div','vrt');c.appendChild(w);const S=o.script;
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];const a=Math.min(s.from,s.to),b=Math.max(s.from,s.to);
+   w.innerHTML='<div class="vrt-row">'+N.map((n,k)=>'<div class="vrt-node'+(k===s.from||k===s.to?' on':'')+'"><span>'+n[0]+'</span><b>'+n[1]+'</b>'+(k===0?'<small class="vrt-th '+(s.thread==='bg'?'bg':'ui')+'">'+(s.thread==='bg'?'background thread':'UI thread')+'</small>':'')+'</div>'+(k<2?'<div class="vrt-ar'+(k>=a&&k<b?' hot':'')+(s.to<s.from?' back':'')+'"><i></i></div>':'')).join('')+'</div><div class="vrt-pk"><div class="vrt-lab">'+esc(s.label)+'</div><pre class="val-code">'+s.body.split('\n').map(l=>'<span class="ln">'+hlLine(l,s.lang||'text')+'</span>').join('')+'</pre></div>'},
+  cap:i=>S[i].cap};
+};
+/* Table → JSON: json_encode one row per step; switch to see mysqli's default (numbers as text). */
+Viz.rowsjson=(c,o,ctl)=>{
+ const w=el('div','vrj');c.appendChild(w);let asText=true;
+ function render(k){const rows=o.rows.slice(0,k);const cell=v=>typeof v==='number'?(asText?'"'+v+'"':String(v)):JSON.stringify(v);
+  const json=rows.length?'[\n'+rows.map(r=>'  {'+o.cols.map((c2,j)=>'"'+c2+'":'+cell(r[j])).join(',')+'}').join(',\n')+'\n]':'[]';
+  w.innerHTML='<div class="vrj-l"><div class="vrj-h">MySQL table: students</div><table class="vsf-t"><thead><tr>'+o.cols.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+o.rows.map((r,j)=>'<tr class="'+(j<k?'vrj-done':'')+(j===k-1?' vrj-new':'')+'">'+r.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join('')+'</tbody></table><div class="vpd-acts"><button type="button" class="vz-btn" data-t="1" aria-pressed="'+asText+'">mysqli default: numbers as "text"</button><button type="button" class="vz-btn" data-t="0" aria-pressed="'+!asText+'">numbers as numbers</button></div></div><div class="vrj-r"><div class="vrj-h">echo json_encode($students);</div><pre class="val-code">'+json.split('\n').map(l=>'<span class="ln">'+hlLine(l,'json')+'</span>').join('')+'</pre></div>';
+  $$('[data-t]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();asText=b.dataset.t==='1';render(k)}))}
+ return{n:()=>o.rows.length+1,note:'logic',draw(i){render(i)},cap:i=>i===0?'Start: an empty PHP array → json_encode gives [].':i===o.rows.length?'All rows encoded: one JSON object per row, inside one array. The app reads it with JSONArray.':'Row '+i+' becomes one {…} object.'};
+};
+/* Thread lab: where the slow network call runs — main thread (crash), AsyncTask, or a coroutine. */
+Viz.threadlab=(c,o)=>{
+ const w=el('div','vtl2');c.appendChild(w);const S=o.script;
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];const lane=(name,blocks)=>'<div class="vtl2-lane"><b>'+name+'</b><div class="vtl2-track">'+blocks.map(x=>'<span class="vtl2-b '+x[2]+'" style="left:'+x[0]+'%;width:'+x[1]+'%">'+esc(x[3])+'</span>').join('')+'</div></div>';
+   w.innerHTML='<div class="vtl2-mode">'+esc(s.mode)+'</div>'+lane('UI (main) thread',s.ui||[])+lane('Background thread',s.bg||[])+'<div class="vij-res '+(s.ok?'ok':'bad')+'"><b>'+esc(s.result)+'</b>'+(s.why?'<small>'+esc(s.why)+'</small>':'')+'</div>'},
+  cap:i=>S[i].cap};
+};
+/* XAMPP control panel: start Apache and MySQL and see which URLs work. */
+Viz.xampp=(c,o,ctl)=>{
+ const st={apache:false,mysql:false};const w=el('div','vxp');c.appendChild(w);
+ const U=[['http://localhost/phpmyadmin','apache','mysql'],['http://localhost/school_app/fetch.php','apache','mysql'],['http://10.0.2.2/school_app/fetch.php (from the emulator)','apache','mysql']];
+ function render(){const svc=(k,n,d)=>'<div class="vxp-svc"><span class="vxp-dot '+(st[k]?'on':'')+'"></span><div><b>'+n+'</b><small>'+(st[k]?'Running':'Stopped')+' — '+d+'</small></div><button type="button" class="vz-btn" data-s="'+k+'">'+(st[k]?'Stop':'Start')+'</button></div>';
+  w.innerHTML='<div class="vxp-panel"><div class="vxp-h">XAMPP Control Panel</div>'+svc('apache','Apache','web server, runs the .php files')+svc('mysql','MySQL','database (MariaDB in XAMPP)')+'</div><div class="vxp-urls">'+U.map(u=>{const ok=st.apache&&st.mysql,half=st.apache&&!st.mysql;return '<div class="vxp-u '+(ok?'ok':'bad')+'"><code>'+esc(u[0])+'</code><small>'+(ok?'✅ works':half?'⚠️ page loads, but PHP cannot reach the database':'❌ connection refused (Apache is off)')+'</small></div>'}).join('')+'</div>';
+  $$('[data-s]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();st[b.dataset.s]=!st[b.dataset.s];render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'sim',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
+};
 
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -964,7 +999,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','jsontree','rtsync','authflow','rulescheck','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','roundtrip','rowsjson','threadlab','xampp','jsontree','rtsync','authflow','rulescheck','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');

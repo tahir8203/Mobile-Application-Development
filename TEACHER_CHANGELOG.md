@@ -39,9 +39,89 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=15` everywhere, and the service worker cache is now `mad-v15`.
+- **Cache:** `?v=16` everywhere, and the service worker cache is now `mad-v16`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 13: MySQL, PHP & Android
+
+**Slides: 41 in total.** That is 37 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 13 _MySQL_PHP_Android.html", in its order:
+1. MySQL & hosting
+2. XAMPP
+3. PHP
+4. PHP ↔ MySQL & JSON
+5. Android ↔ MySQL with AsyncTask
+6. The complete StudentManagerApp
+7. Test Yourself (all 6 questions)
+
+AsyncTask stays the outline version; a coroutine version and a "going live" part were added.
+
+### What changed
+
+- **Four new live widgets:**
+  - **Round trip** (`roundtrip`): phone → PHP → MySQL → PHP → phone, one hop per step, for one Save and one Load. It shows the real POST body, the prepared statement, the JSON reply, and whether the phone is on the UI or background thread.
+  - **Table → JSON** (`rowsjson`): json_encode one row per step, with a switch between mysqli's default (numbers as "text") and real numbers.
+  - **Thread lab** (`threadlab`): network call in the click listener (NetworkOnMainThreadException) vs AsyncTask vs coroutine, drawn on UI and background lanes.
+  - **XAMPP control panel** (`xampp`): start or stop Apache and MySQL and see which URLs work.
+- **New structure for the app code:** the network calls moved from inside the two AsyncTasks into one `StudentApi` object. Both the AsyncTask MainActivity (outline) and the coroutine MainActivity (modern) use it.
+- **New slides:**
+  - what MySQL is vs SQLite/Firebase
+  - creating the database in phpMyAdmin
+  - PHP vs Kotlin
+  - db_connect.php with try/catch
+  - the string-glued SQL mistake
+  - the network security config
+  - AsyncTask vs coroutines
+  - security basics
+  - going live
+  - the troubleshooting cheat-sheet
+- **41 defined terms.** Examples: client, server, MySQL, MariaDB, hosting, localhost, 10.0.2.2, XAMPP, Apache, phpMyAdmin, htdocs, PHP, echo, mysqli, prepared statement, bind_param, $_POST, json_encode, JSONArray, HTTP, GET/POST, status code, HttpURLConnection, URLEncoder, NetworkOnMainThreadException, AsyncTask, Dispatchers.IO, lifecycleScope, cleartext, network security config, Retrofit. 34 were added to the portal glossary, which now has 516 terms.
+- **Cache:** `?v=16` / `mad-v16`.
+- **Course Outline:** all 11 Lecture 13 topics land on matching slides. Three were re-pointed (creating the database, storing from the app, reading into the app).
+
+### Verification
+
+- **Kotlin, compiled:** all 4 Kotlin code slides compiled with Kotlin 2.2.21 (StudentApi, the AsyncTask skeleton, the AsyncTask MainActivity, the coroutine MainActivity).
+- **Kotlin, run for real:** the network code ran on the JVM against a local test server.
+  - The real parts: HttpURLConnection, URLEncoder, streams, kotlinx-coroutines 1.11.0 with withContext(Dispatchers.IO), and the AsyncTask stand-in running doInBackground on a separate thread.
+  - The test server imitates insert.php and fetch.php: the same checks, the same JSON shape, and mysqli-style string numbers, on real SQLite.
+  - Only org.json used a small stand-in (Android's version is not available on a PC), with getInt's documented string coercion.
+- **Results of those runs:**
+  - POST body name=Ali+Raza&roll_no=2025-CS-01&marks=85 → "Student saved"
+  - an empty roll number → the 400 message
+  - marks "abc" → "Please fill all fields" before any request
+  - fetchAll → "Ali Raza (2025-CS-01) — 85"
+  - the AsyncTask and coroutine apps list exactly what the slides show
+  - with the server stopped: ConnectException (an IOException), "Could not load students" from both apps, and "Error: …" on Save
+- **PHP was NOT executed:** there is no PHP or XAMPP on the build PC, and nothing was downloaded without asking you. The PHP was checked against the php.net manual, and basics.php's output was traced by hand. The JSON texts on the slides are what the test server produced, in json_encode's compact format.
+- **SQL:** the MySQL statements were not run (no MySQL). The same table, insert and select were run on SQLite with SQLite spellings, which gives the slide's row. A missing roll_no hits NOT NULL, which is why insert.php now validates input.
+- **XML:** the layout, the manifest and the network security config are well-formed.
+- **Browser:**
+  - no script errors, and all 41 slides have no sideways scrolling at 360 px
+  - the four widgets were tested by script (the XAMPP panel also by hand)
+  - the round-trip payload was made to wrap on phones
+  - Lecture 11–12 widgets were re-checked
+- **Facts checked on 26 Nov 2026:**
+  - **php.net:**
+    - "As of PHP 8.1.0, the default setting is MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT" (errors throw mysqli_sql_exception)
+    - MYSQLI_OPT_INT_AND_FLOAT_NATIVE "Convert integer and float columns back to PHP numbers when using non-prepared statements" (so the default is strings)
+  - **developer.android.com:**
+    - AsyncTask "deprecated in API level 30. Use the standard java.util.concurrent or Kotlin concurrency utilities instead"
+    - NetworkOnMainThreadException
+    - cleartext "disabled by default" from Android 9, plus the network security config example and the android:networkSecurityConfig attribute
+    - 10.0.2.2 = "Special alias to your host loopback interface (127.0.0.1 on your development machine)"
+    - JSONObject.getInt coerces strings
+
+### Corrections to your notes
+
+1. **db_connect.php's `if ($conn->connect_error) { die(…) }`:** since PHP 8.1 mysqli throws an exception on failure, so this line is never reached. The slides use try/catch and still reply with JSON. They also add `set_charset("utf8mb4")` so Urdu names and emoji are stored correctly.
+2. **insert.php used `$_POST[...]` directly:** a missing field gave a warning and then a NOT NULL error, and "abc" marks were not checked. Added: `?? ""`, trim, FILTER_VALIDATE_INT, a 400 reply with a JSON message, the JSON Content-Type header, and the new id in the reply. Your prepared statement was already correct. 👍
+3. **fetch.php's numbers arrive as text** ("85") with mysqli's default. The slides say so; your Kotlin `getInt()` still works because org.json converts them.
+4. **`android:usesCleartextTraffic="true"`** allows plain HTTP to every address. A network security config now allows it for 10.0.2.2 only (add the PC's Wi-Fi IP for a real phone); real hosting uses HTTPS.
+5. **The app only checked for empty boxes**, so "abc" marks reached the server. It now uses toIntOrNull. The Toast showed the raw JSON text; it now shows the server's "message".
+6. **AsyncTask:** kept as the outline version and clearly marked deprecated (API 30), with the reference's reasons. The modern coroutine version uses the same StudentApi.
+7. **The ListView used `match_parent` under the buttons:** it now uses 0dp + weight 1. The manifest's `package="…"` is the Gradle namespace since AGP 8.
+8. **The closing `?>`** in PHP-only files is left out (the usual style), so no stray whitespace can break a JSON reply.
 
 ## Lecture 12: Firebase in Android
 
