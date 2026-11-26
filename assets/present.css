@@ -715,3 +715,42 @@ body.pz-open{overflow:hidden}
 .vij-res.bad{border-color:#f87171;background:rgba(248,113,113,.12)}
 .vij-res.err{border-color:#f59e0b;background:rgba(245,158,11,.12)}
 @media (max-width:760px){.vcw{grid-template-columns:minmax(0,1fr)}}
+
+/* Firebase JSON tree, real-time sync, auth flow, rules checker (Lecture 12) */
+.vjt{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;align-items:start}
+.vjt-code{font-size:.74em}
+.vjt-box{border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:.6rem .7rem;font-family:var(--mono,monospace);font-size:.8em;min-width:0;overflow-x:auto}
+.vjt-h{font-family:var(--sans,inherit);font-size:.85em;color:var(--mu);margin-bottom:.35rem}
+.vjt-ul{list-style:none;margin:0;padding-left:1.1em;border-left:1px dashed var(--line)}
+.vjt-box>.vjt-ul{padding-left:.2em;border-left:0}
+.vjt-li{padding:.08em .25em;border-radius:6px;overflow-wrap:anywhere}
+.vjt-k{color:#f59e0b}.vjt-v{color:#34d399}
+.vjt-li.hl{background:rgba(52,211,153,.16);animation:vjt-in .6s ease}
+.vjt-li.del{background:rgba(248,113,113,.18);text-decoration:line-through}
+.vjt-empty{color:var(--mu);font-style:italic}
+@keyframes vjt-in{from{background:rgba(52,211,153,.5)}}
+.vrs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr) minmax(0,1fr);gap:.6rem;align-items:start}
+.vrs-col{display:flex;flex-direction:column;align-items:center;gap:.3rem;min-width:0;transition:opacity .3s}
+.vrs-col.off{opacity:.65}
+.vrs-n{color:var(--mu);font-family:var(--mono,monospace);font-size:.72em}
+.vrs-row{font-size:.72em;text-align:left}
+.vrs-mid{display:flex;flex-direction:column;align-items:center;gap:.4rem;min-width:0}
+.vrs-srv{width:100%;border:2px solid var(--line);border-radius:12px;background:var(--bg);padding:.5rem;font-family:var(--mono,monospace);font-size:.68em;overflow-x:auto}
+.vrs-srv.flash{border-color:#f59e0b;animation:vrs-f .8s ease}
+@keyframes vrs-f{from{box-shadow:0 0 0 6px rgba(245,158,11,.35)}to{box-shadow:none}}
+.vrs-arrows{font-size:1.6em;color:var(--cyan)}
+.vaf{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:.8rem;align-items:start}
+.vaf .phone-body{position:relative;min-height:15em}
+.vaf-toast{position:absolute;left:8%;right:8%;bottom:.6em;background:#1e293b;color:#fff;border-radius:999px;padding:.45em .8em;font-size:.72em;text-align:center;animation:vlf-fade .3s ease}
+.vaf-side{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.vaf-h{font-size:.78em;color:var(--mu)}
+.vaf-uid{font-family:var(--mono,monospace);font-size:.85em}
+.vaf-new td{background:rgba(52,211,153,.16)}
+.vaf-code{font-size:.72em}
+.vrc{display:flex;flex-direction:column;gap:.6rem}
+.vrc-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.6rem;align-items:start}
+.vrc-json{font-size:.74em}
+@media (max-width:760px){.vjt,.vaf,.vrc-grid{grid-template-columns:minmax(0,1fr)}.vrs{grid-template-columns:minmax(0,1fr)}.vrs-arrows{transform:rotate(90deg)}}
+@media (prefers-reduced-motion:reduce){.vjt-li.hl,.vrs-srv.flash,.vaf-toast{animation:none}}
+.vrs .phone{aspect-ratio:auto;min-height:13em}
+@media (max-width:760px){.vrs .phone{max-width:16em;min-height:10em}}

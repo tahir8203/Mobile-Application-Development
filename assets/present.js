@@ -45,7 +45,7 @@ addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=14';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=15';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -790,6 +790,73 @@ Viz.injection=(c,o,ctl)=>{
  const S=o.script;
  return{n:()=>S.length,note:'sim',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
 };
+/* Firebase JSON tree: apply setValue / push / removeValue step by step and highlight what changed. */
+const fbClone=o=>JSON.parse(JSON.stringify(o));
+const fbTree=(obj,path,hl,del)=>{if(obj===null||typeof obj!=='object')return '<span class="vjt-v">'+esc(JSON.stringify(obj))+'</span>';
+ return '<ul class="vjt-ul">'+Object.keys(obj).map(k=>{const p=path?path+'/'+k:k;const cls=(hl.has(p)?' hl':'')+(del.has(p)?' del':'');const v=obj[k];
+  return '<li class="vjt-li'+cls+'"><span class="vjt-k">'+esc(k)+'</span>'+(v!==null&&typeof v==='object'?fbTree(v,p,hl,del):': '+fbTree(v,p,hl,del))+'</li>'}).join('')+'</ul>'};
+const fbSet=(root,path,val)=>{const ks=path.split('/');let o=root;for(let i=0;i<ks.length-1;i++){if(typeof o[ks[i]]!=='object'||o[ks[i]]===null)o[ks[i]]={};o=o[ks[i]]}if(val===null)delete o[ks.at(-1)];else o[ks.at(-1)]=fbClone(val)};
+const fbGet=(root,path)=>path.split('/').reduce((o,k)=>o&&o[k],root);
+Viz.jsontree=(c,o)=>{
+ const w=el('div','vjt');c.appendChild(w);const S=o.script;
+ return{n:()=>S.length+1,note:'sim',
+  draw(i){let t=fbClone(o.tree||{});const hl=new Set(),del=new Set();
+   for(let k=0;k<i;k++){const s=S[k],last=k===i-1,path=s.op==='push'?s.path+'/'+s.key:s.path;
+    if(last&&s.op==='remove'){del.add(path);continue}
+    fbSet(t,path,s.op==='remove'?null:s.value);if(last){hl.add(path);const v=fbGet(t,path);if(v&&typeof v==='object')Object.keys(v).forEach(x=>hl.add(path+'/'+x))}}
+   const s=S[i-1];
+   w.innerHTML='<pre class="val-code vjt-code">'+(s?s.code:o.code0||'// the database at the start').split('\n').map(l=>'<span class="ln">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre><div class="vjt-box"><div class="vjt-h">🔥 Realtime Database (console → Data)</div>'+(Object.keys(t).length||del.size?fbTree(t,'',hl,del):'<div class="vjt-empty">null — the database is empty</div>')+'</div>'},
+  cap:i=>i?S[i-1].cap:(o.cap0||'The database is one JSON tree.')};
+};
+/* Real-time sync: phone A, the server, phone B. Each change on the server reaches every phone with a listener. */
+Viz.rtsync=(c,o)=>{
+ const w=el('div','vrs');c.appendChild(w);const S=o.script;
+ const line=s=>'👨‍🎓 '+s.name+' | '+s.age+' yrs | '+s.city;
+ return{n:()=>S.length,note:'sim',
+  draw(i){let srv={},bOnline=true,bView={},calls={A:0,B:0},flash='',lastLog='';
+   const fire=(who)=>{calls[who]++};
+   for(let k=0;k<=i;k++){const s=S[k];flash='';
+    if(s.a==='start'){fire('A');fire('B')}
+    else if(s.a==='add'){srv[s.key]=fbClone(s.s);flash=s.by;fire('A');if(bOnline){fire('B');bView=fbClone(srv)}}
+    else if(s.a==='edit'){srv[s.key][s.field]=s.value;flash='console';fire('A');if(bOnline){fire('B');bView=fbClone(srv)}}
+    else if(s.a==='remove'){delete srv[s.key];flash='console';fire('A');if(bOnline){fire('B');bView=fbClone(srv)}}
+    else if(s.a==='offline'){bOnline=false}
+    else if(s.a==='online'){bOnline=true;fire('B');bView=fbClone(srv)}
+    if(bOnline)bView=fbClone(srv)}
+   const list=v=>{const ks=Object.keys(v);return ks.length?ks.map(k=>'<div class="w-text vrs-row">'+esc(line(v[k]))+'</div>').join(''):'<div class="w-text" style="color:#64748b">No Records Found</div>'};
+   w.innerHTML='<div class="vrs-col">'+phone('Phone A',list(srv))+'<small class="vrs-n">onDataChange × '+calls.A+'</small></div><div class="vrs-mid"><div class="vrs-srv'+(flash?' flash':'')+'"><b>🔥 Students</b>'+(Object.keys(srv).length?fbTree(srv,'',new Set(),new Set()):'<div class="vjt-empty">null</div>')+'</div><div class="vrs-arrows">⇄</div></div><div class="vrs-col'+(bOnline?'':' off')+'">'+phone('Phone B'+(bOnline?'':' · offline ✈️'),list(bView))+'<small class="vrs-n">onDataChange × '+calls.B+'</small></div>'},
+  cap:i=>S[i].cap};
+};
+/* Firebase Authentication flow: the phone screen and the console's Users tab, step by step. */
+Viz.authflow=(c,o)=>{
+ const w=el('div','vaf');c.appendChild(w);const S=o.script;
+ const form=s=>s.screen==='main'?'<div class="w-text">Welcome, '+esc(s.email)+'</div><button type="button" class="w-btn">Logout</button>':'<input class="w-edit" readonly value="'+esc(s.email||'')+'" placeholder="Email" aria-label="Email"><input class="w-edit" readonly value="'+('•'.repeat((s.pass||'').length))+'" placeholder="Password" aria-label="Password">'+(s.screen==='register'?'<input class="w-edit" readonly value="'+('•'.repeat((s.confirm||'').length))+'" placeholder="Confirm Password" aria-label="Confirm password"><button type="button" class="w-btn">CREATE ACCOUNT</button>':'<button type="button" class="w-btn">LOGIN</button>');
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];const users=[];for(let k=0;k<=i;k++)if(S[k].adds)users.push(S[k].adds);
+   w.innerHTML='<div class="vaf-ph">'+phone(s.screen==='register'?'Register':s.screen==='login'?'Login':'MainActivity',form(s)+(s.toast?'<div class="vaf-toast">'+esc(s.toast)+'</div>':''))+'</div><div class="vaf-side"><div class="vaf-h">Firebase console → Authentication → Users</div><table class="vsf-t"><thead><tr><th>Identifier</th><th>User UID</th></tr></thead><tbody>'+(users.length?users.map((u,k)=>'<tr class="'+(S[i].adds===u?'vaf-new':'')+'"><td>'+esc(u.email)+'</td><td class="vaf-uid">'+esc(u.uid)+'</td></tr>').join(''):'<tr><td colspan="2" class="vsf-none">no users yet</td></tr>')+'</tbody></table>'+(s.code?'<pre class="val-code vaf-code">'+s.code.split('\n').map(l=>'<span class="ln">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre>':'')+'</div>'},
+  cap:i=>S[i].cap};
+};
+/* Security Rules checker: pick the rules, who is asking and what they ask for. */
+Viz.rulescheck=(c,o,ctl)=>{
+ const st={rules:'test',signed:false,op:'write',path:'Students'};const w=el('div','vrc');c.appendChild(w);
+ const R={test:{label:'Test mode',json:'{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}',note:'Open to everyone until the trial period ends — then everything is denied.'},
+  auth:{label:'Signed-in users',json:'{\n  "rules": {\n    ".read": "auth != null",\n    ".write": "auth != null"\n  }\n}',note:'Any signed-in user can read and write everything.'},
+  owner:{label:'Owner only',json:'{\n  "rules": {\n    "users": {\n      "$uid": {\n        ".read": "auth !== null && auth.uid === $uid",\n        ".write": "auth !== null && auth.uid === $uid"\n      }\n    }\n  }\n}',note:'Each user can only reach users/<their own uid>. Paths with no rule are denied.'},
+  locked:{label:'Locked mode',json:'{\n  "rules": {\n    ".read": false,\n    ".write": false\n  }\n}',note:'Apps are denied everything (your own servers can still use the Admin SDK).'}};
+ const PATHS={Students:'Students','users/uid_ali':'users/uid_ali  (Ali’s own)','users/uid_sara':'users/uid_sara  (Sara’s)'};
+ function decide(){const r=st.rules;if(r==='test')return[true,'".'+st.op+'": true → allowed for anyone, even without signing in.'];
+  if(r==='locked')return[false,'".'+st.op+'": false → denied.'];
+  if(r==='auth')return st.signed?[true,'auth != null and Ali is signed in → allowed.']:[false,'Not signed in, so auth is null → Permission denied.'];
+  if(!st.path.startsWith('users/'))return[false,'No rule covers "'+st.path+'" → denied by default.'];
+  if(!st.signed)return[false,'Not signed in → auth is null → denied.'];
+  return st.path==='users/uid_ali'?[true,'$uid = uid_ali and auth.uid = uid_ali → allowed.']:[false,'$uid = uid_sara but auth.uid = uid_ali → denied.']}
+ const sel=(k,opts)=>'<select data-k="'+k+'">'+Object.entries(opts).map(([v,l])=>'<option value="'+v+'"'+(String(st[k])===v?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select>';
+ function render(){const [ok,why]=decide();
+  w.innerHTML='<div class="vsf-ctl"><label><span>Rules</span>'+sel('rules',Object.fromEntries(Object.entries(R).map(([k,v])=>[k,v.label])))+'</label><label><span>Who asks</span>'+sel('signed',{false:'Not signed in',true:'Ali (signed in, uid_ali)'})+'</label><label><span>Operation</span>'+sel('op',{read:'read',write:'write'})+'</label><label><span>Path</span>'+sel('path',PATHS)+'</label></div><div class="vrc-grid"><pre class="val-code vrc-json">'+R[st.rules].json.split('\n').map(l=>'<span class="ln">'+hlLine(l,'json')+'</span>').join('')+'</pre><div class="vij-res '+(ok?'ok':'bad')+'"><b>'+(ok?'✅ Allowed':'⛔ Permission denied')+'</b><small>'+esc(why)+'</small><small>'+esc(R[st.rules].note)+'</small></div></div>';
+  $$('[data-k]',w).forEach(s=>s.addEventListener('change',()=>{ctl.pause();st[s.dataset.k]=s.dataset.k==='signed'?s.value==='true':s.value;render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
+};
 
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -897,7 +964,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','jsontree','rtsync','authflow','rulescheck','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');

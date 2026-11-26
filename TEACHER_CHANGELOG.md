@@ -39,9 +39,106 @@ All changes are additive and every old deck still works.
   - Code fonts turned `<=` / `->` / `!=` into ligature symbols (≤ → ≠). Ligatures are now off in code, so students see exactly what to type.
   - At phone width the "LECTURE 02" label overlapped the slide counter.
   - **Old bug:** the "variable" animation (labelled box) never appeared, because its options used the key `type` twice. The data type is now `dtype`. Its error text now matches Kotlin 2.2: *'val' cannot be reassigned*.
-- **Cache:** `?v=14` everywhere, and the service worker cache is now `mad-v14`.
+- **Cache:** `?v=15` everywhere, and the service worker cache is now `mad-v15`.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
+
+## Lecture 12: Firebase in Android
+
+**Slides: 44 in total.** That is 40 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 12 Firebase_in_Android.html", in the order of its 10 sections:
+1. What is Firebase
+2. SDK
+3. Project
+4. Connecting the app
+5. Server settings
+6. Create user
+7. Sign in
+8. Storing data
+9. Snapshot and retrieving
+10. The complete real-time app, plus your 6-question quiz
+
+### What changed
+
+- **Compose removed.** Every screen uses ViewBinding. Your notes' API style is kept (`FirebaseAuth.getInstance()`, `FirebaseDatabase.getInstance()`).
+- **Four new live widgets:**
+  - **JSON tree** (`jsontree`): setValue of a single value, an object, the same fixed key again (it is *replaced*), two push() calls (*added*), and removeValue(). Each step highlights what changed.
+  - **Live sync** (`rtsync`): phone A, the server tree and phone B.
+    - Adds and a console edit reach both phones.
+    - Phone B goes offline, misses one add, then catches up when it is back online.
+    - Each phone shows how many times onDataChange has run.
+  - **Authentication flow** (`authflow`): the phone screen next to the console's Users tab.
+    - Short password, then an account created (with a UID).
+    - Duplicate email, then a wrong password with the generic message.
+    - Login, auto-login through currentUser, and signOut.
+  - **Security Rules checker** (`rulescheck`): test mode / auth != null / owner-only / locked × signed in or not × read or write × path. It shows the rule JSON and Allowed or Permission denied with the reason.
+- **New slides:**
+  - SQLite vs Firebase
+  - the JSON tree
+  - Realtime Database vs Firestore
+  - know your console
+  - the Assistant way and the manual way
+  - testing the connection
+  - the database-URL mistake
+  - the test-mode mistake
+  - reading once
+  - DataSnapshot
+  - the never-removed listener (mistake)
+  - the complete layout and manifest
+  - the troubleshooting cheat-sheet
+- **39 defined terms.** Examples: Firebase, Realtime Database, Cloud Firestore, NoSQL, JSON, node, SDK, BoM, google-services.json, Google Services plugin, Firebase Authentication, UID, currentUser, email enumeration protection, asynchronous, Task, DatabaseReference, setValue(), push(), removeValue(), default value, DataSnapshot, addValueEventListener, removeEventListener, Security Rules, test mode, Spark plan. 29 were added to the portal glossary, which now has 482 terms.
+- **Cache:** `?v=15` / `mad-v15`.
+- **Course Outline:** all 10 Lecture 12 topics land on matching slides. Four were re-pointed to the new, more specific slides: Register, Sign in, Store a single value and DataSnapshot.
+
+### Verification
+
+- **Kotlin:** all 9 Kotlin code slides were taken straight from the deck and compiled together with Kotlin 2.2.21 against stand-in Firebase classes. The stand-ins are an in-memory JSON server with listeners, Auth with accounts and currentUser, and getValue() that rebuilds objects through the empty constructor, as Firebase does. Simulated:
+  - **Writing:**
+    - the connection test writes "Hello Firebase!"
+    - a single value saves, and a denied write gives "Permission denied"
+    - an object is stored as {age, city, name}
+    - two push() calls give two different keys
+  - **Reading:**
+    - read-once returns the value or "No data"
+    - the real-time list updates on every add
+    - a class **without** default values cannot be read (NoSuchMethodException)
+  - **Register:** empty fields, a short password, mismatched passwords, success (also signed in), a duplicate email.
+  - **Login:** a wrong password, success, and auto-login on reopening.
+  - **MainActivity:** save, an empty-age check, the listener removed on Home and re-added on return, and logout.
+- **JSON:** the database-tree slide and both rule files parse.
+- **XML:** activity_main and the manifest are well-formed.
+- **Browser:**
+  - no script errors, and all 44 slides have no sideways scrolling at 360 px
+  - the four widgets were tested by script and the rules checker by hand
+  - the live-sync phones were made shorter on phones
+  - Lecture 10 and 11 widgets were re-checked
+- **Facts checked on 26 Nov 2026:**
+  - **Android setup guide** (firebase.google.com): BoM 35.2.0, google-services plugin 4.6.0, API 24+.
+  - **Realtime Database start guide:**
+    - test mode "allows anyone to read and overwrite your data" and denies everything after a trial period
+    - non-us-central1 databases have …REGION.firebasedatabase.app URLs, and "you must pass the database URL to getInstance()"
+    - the console path is Databases & Storage > Realtime Database
+  - **Read and Write guide:**
+    - custom classes need "a default constructor that takes no arguments"
+    - setValue "overwrites data at the specified location"
+    - detach listeners with removeEventListener()
+  - **Realtime Database limits:** "The Spark plan limit on simultaneous connections is 100."
+  - **Password-auth guide:** "If the new account was created, the user is also signed in"; the console path is Security > Authentication.
+  - **Basic Security Rules:** the owner-only pattern.
+  - **Google Cloud Identity Platform:** email enumeration protection is on by default for projects created on or after 15 Sep 2023; invalid sign-ins return INVALID_LOGIN_CREDENTIALS.
+
+### Corrections to your notes
+
+1. **Database location vs code:** your notes suggest asia-southeast1 "closer = faster", but the code calls `FirebaseDatabase.getInstance()` with no URL. Firebase's docs say a database outside us-central1 must be opened with its URL. There is a mistake slide and a cheat-sheet line.
+2. **The listener is attached in onCreate and never removed:** it keeps using data and battery after the screen is gone, and a second one is added when onCreate runs again. It is now attached in onStart and removed in onStop with removeEventListener (Lecture 9's pairs).
+3. **Old versions:** BoM 33.1.2 → 35.2.0, google-services plugin 4.4.2 → 4.6.0. The project-level file no longer repeats AGP/Kotlin versions, so it fits any new project.
+4. **Console menu names:** "Build → Authentication / Realtime Database" is now **Security → Authentication** and **Databases & Storage → Realtime Database**.
+5. **Register → Login:** a new account is *already signed in*. After Register, LoginActivity's auto-login jumps straight to MainActivity; the notes say so.
+6. **"Wrong email or wrong password":** new projects (since 15 Sep 2023) return one generic INVALID_LOGIN_CREDENTIALS error anyway. Your "one polite message" habit matches this.
+7. **Spark plan "1 GB storage, 100 connections":** the 100-connection limit is confirmed; the storage figure could not be confirmed on a Firebase page, so the slides quote only the connections. Check firebase.google.com/pricing before quoting other numbers.
+8. **Small fixes:**
+   - `push().key!!` → `push().key ?: return`, or simply `push().setValue(…)`.
+   - The live list is built with mapNotNull + joinToString instead of `result +=`.
+   - `findViewById` → ViewBinding.
 
 ## Lecture 11: SQLite in Android
 

@@ -1,11 +1,11 @@
 /* MAD Course offline cache. Bump VERSION with the ?v= number in index.html. */
-const VERSION = 'mad-v14';
+const VERSION = 'mad-v15';
 const CORE = ['./', 'index.html', 'manifest.webmanifest',
-  'assets/theme.css?v=14', 'assets/present.css?v=14', 'assets/portal.css?v=14',
-  'assets/portal-data.js?v=14', 'assets/present.js?v=14', 'assets/course-data.js?v=14',
-  'assets/course.js?v=14', 'assets/labs.js?v=14', 'assets/portal.js?v=14',
+  'assets/theme.css?v=15', 'assets/present.css?v=15', 'assets/portal.css?v=15',
+  'assets/portal-data.js?v=15', 'assets/present.js?v=15', 'assets/course-data.js?v=15',
+  'assets/course.js?v=15', 'assets/labs.js?v=15', 'assets/portal.js?v=15',
   'assets/instructor.webp', 'assets/icons/icon-192.png']
-  .concat(Array.from({ length: 16 }, (_, i) => 'assets/slides/l' + String(i + 1).padStart(2, '0') + '.js?v=14'));
+  .concat(Array.from({ length: 16 }, (_, i) => 'assets/slides/l' + String(i + 1).padStart(2, '0') + '.js?v=15'));
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
