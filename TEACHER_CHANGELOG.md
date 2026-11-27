@@ -43,6 +43,12 @@ All changes are additive and every old deck still works.
 - **New widget `studio` (added with Lecture 1):** a simplified Android Studio window — Project panel, code editor, Layout Editor, device menu, Run button and Logcat. Each step highlights one area and dims the rest. It will be reused in Lecture 3.
 - **Class rename:** the Lecture 7 scaleType lab now uses `.vsc*` classes, because `.vst` was already used by the storage widget and the two clashed.
 
+## Portal: focus mode for lecture pages
+
+- Every lecture toolbar has a **Focus mode** button (key **H**). It hides the top bar, the course menu and the phone bottom tabs so the lecture uses the whole screen. Press it again, press H, or tap the small **Show menus** pill (bottom-left) to bring them back. The choice is remembered on that device and only applies on lecture pages.
+- Fixed: the **Present slides** button in the lecture toolbar showed as a blank white pill (white text on a white background) because a toolbar style overrode its blue gradient. This bug was already on the live site.
+- Checked in the browser at desktop width and 360 px: bars hide and return, the setting survives a reload, other pages keep their menus, no sideways scrolling, no console errors.
+
 ## Lecture 16: Services & Broadcast Receivers
 
 **Slides: 33 in total.** That is 29 body slides plus the automatic title, objectives, Bloom and "In 2026" slides. Baseline: your "Lecture 16 Android_Services_and_Broadcast_Receivers.html", in the order of its 9 sections:
