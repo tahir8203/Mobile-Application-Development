@@ -4,14 +4,17 @@
 'use strict';
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const md=t=>esc(t).replace(/&lt;(\/?)em&gt;/g,'<$1em>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
-const plain=t=>String(t==null?'':t).replace(/<\/?em>/g,'');
+/* [[term]] or [[term|shown text]] becomes a tooltip button; definitions come from deck.terms or the course glossary */
+const TIPRX=/\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g;
+const tipBtn=(t,l)=>'<button type="button" class="tip" data-term="'+t+'" aria-expanded="false">'+l+'</button>';
+const md=t=>esc(t).replace(/&lt;(\/?)em&gt;/g,'<$1em>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(TIPRX,(m,a,b)=>tipBtn(a,b||a));
+const plain=t=>String(t==null?'':t).replace(/<\/?em>/g,'').replace(TIPRX,(m,a,b)=>b||a);
 const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e};
 const pad=n=>String(n).padStart(2,'0');
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 /* ---------- storage (separate from the original course key) ---------- */
-const Store={key:'madPresentationV1',d:{last:null,slide:{},seen:{},quiz:{},tasks:{},total:{},pt:'dark'},
+const Store={key:'madPresentationV1',d:{last:null,slide:{},seen:{},quiz:{},tasks:{},total:{},pt:'dark',rev:{}},
  load(){try{const r=JSON.parse(localStorage.getItem(this.key)||'null');if(r&&typeof r==='object')for(const k in this.d){if(r[k]!==undefined&&typeof r[k]===typeof this.d[k])this.d[k]=r[k]}}catch(e){}},
  save(){try{localStorage.setItem(this.key,JSON.stringify(this.d))}catch(e){}},
  obj(k,l){return this.d[k][l]||(this.d[k][l]={})}};
@@ -19,11 +22,30 @@ Store.load();
 
 /* ---------- deck loading ---------- */
 const Decks={},waiting={};
-window.MAD={deck(n,d){Decks[n]=d;(waiting[n]||[]).forEach(w=>w[0](d));delete waiting[n]}};
+const TERMS={};
+window.MAD={deck(n,d){Decks[n]=d;if(d.terms)Object.keys(d.terms).forEach(k=>{TERMS[k.toLowerCase()]=[k,d.terms[k]]});(waiting[n]||[]).forEach(w=>w[0](d));delete waiting[n]}};
+function termDef(t){const k=String(t).toLowerCase();if(TERMS[k])return TERMS[k][1];
+ try{if(typeof GLOSSARY!=='undefined'){const g=GLOSSARY.find(x=>x[0].toLowerCase()===k);if(g)return g[1]}}catch(e){}return''}
+/* tooltip: opens on hover (mouse), on focus (keyboard) and on tap (touch); closes on tap outside or Esc */
+const Tip={pop:null,cur:null,pinned:false,
+ make(){if(this.pop)return this.pop;const p=el('div','tip-pop');p.id='mad-tip';p.setAttribute('role','tooltip');p.hidden=true;document.body.appendChild(p);return this.pop=p},
+ show(b,pin){const p=this.make();if(this.cur&&this.cur!==b)this.cur.setAttribute('aria-expanded','false');this.cur=b;this.pinned=!!pin;
+  const t=b.dataset.term,d=termDef(t);p.innerHTML='<b>'+esc(t)+'</b><span>'+md(String(d||'See the glossary at the end of the lecture.').replace(TIPRX,(m,a,c)=>c||a))+'</span>';
+  p.hidden=false;b.setAttribute('aria-expanded','true');b.setAttribute('aria-describedby','mad-tip');
+  const r=b.getBoundingClientRect(),W=Math.min(320,innerWidth-16);p.style.width=W+'px';const h=p.offsetHeight;
+  p.style.left=clamp(r.left+r.width/2-W/2,8,innerWidth-W-8)+'px';p.style.top=(r.bottom+8+h>innerHeight&&r.top-8-h>0?r.top-8-h:r.bottom+8)+'px'},
+ hide(){if(!this.pop||this.pop.hidden)return false;this.pop.hidden=true;if(this.cur){this.cur.setAttribute('aria-expanded','false');this.cur.removeAttribute('aria-describedby')}this.cur=null;this.pinned=false;return true}};
+document.addEventListener('mouseover',e=>{const b=e.target.closest&&e.target.closest('.tip');if(b&&b!==Tip.cur)Tip.show(b,false)});
+document.addEventListener('mouseout',e=>{const b=e.target.closest&&e.target.closest('.tip');if(b&&b===Tip.cur&&!Tip.pinned&&!(e.relatedTarget&&b.contains(e.relatedTarget)))Tip.hide()});
+document.addEventListener('focusin',e=>{const b=e.target.closest&&e.target.closest('.tip');if(b)Tip.show(b,false)});
+document.addEventListener('focusout',e=>{const b=e.target.closest&&e.target.closest('.tip');if(b&&!Tip.pinned)Tip.hide()});
+document.addEventListener('click',e=>{const b=e.target.closest('.tip');if(b){e.preventDefault();e.stopPropagation();if(Tip.cur===b&&Tip.pinned)Tip.hide();else Tip.show(b,true);return}if(!e.target.closest('.tip-pop'))Tip.hide()},true);
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&Tip.hide()){e.preventDefault();e.stopImmediatePropagation()}},true);
+addEventListener('resize',()=>Tip.hide());
 function loadDeck(n){
  if(Decks[n])return Promise.resolve(Decks[n]);
  return new Promise((res,rej)=>{const first=!waiting[n];(waiting[n]=waiting[n]||[]).push([res,rej]);
-  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=2';
+  if(first){const s=document.createElement('script');s.src='assets/slides/l'+pad(n)+'.js?v=19';
    s.onerror=()=>{(waiting[n]||[]).forEach(w=>w[1](new Error('Could not load slides for lecture '+n)));delete waiting[n];s.remove()};document.head.appendChild(s)}});
 }
 const BLOOM=[['head','🧠','Head','Cognitive · know & understand'],['heart','❤️','Heart','Affective · value & care'],['hand','🛠️','Hand','Psychomotor · build & do']];
@@ -33,7 +55,8 @@ function compose(n,d){
   {kind:'objectives',title:'By the end of this lecture you can…',points:d.objectives,notes:'Read the objectives aloud. Return to this slide at the end and ask students to tick off each one.'}];
  if(d.bloom)s.push({kind:'bloom',title:'Learning outcomes: Head, Heart, Hand',bloom:d.bloom,notes:'Bloom’s Taxonomy in three domains. Head = what students will know (cognitive). Heart = attitudes and values (affective). Hand = what they will be able to do with their hands in Android Studio (psychomotor).'});
  const body=d.slides.slice(),tn=window.MAD_PORTAL&&window.MAD_PORTAL.thenNow&&window.MAD_PORTAL.thenNow[n];
- if(tn){const at=body.findIndex(x=>x.kind==='summary');body.splice(at<0?body.length:at,0,{kind:'update',title:'In 2026: what changed',points:tn,notes:'The course outline teaches the classic APIs. This slide shows what professional teams use today for the same job. Students should be able to read both styles.'})}
+ if(d.rev){const R=Store.d.rev;if(R[n]!==d.rev){if(R[n]!==undefined||Store.d.seen[n]){['seen','quiz','tasks'].forEach(k=>delete Store.d[k][n]);delete Store.d.slide[n]}R[n]=d.rev;Store.save()}}
+ if(tn&&d.update!==false){const at=body.findIndex(x=>x.kind==='summary');body.splice(at<0?body.length:at,0,{kind:'update',title:'In 2026: what changed',points:tn,notes:'The course outline teaches the classic APIs. This slide shows what professional teams use today for the same job. Students should be able to read both styles.'})}
  const all=s.concat(body);Store.d.total[n]=all.length;return all;
 }
 
@@ -89,13 +112,14 @@ function mountViz(host,o){
  const ctl={i:0,timer:null,box,canvas,opts:o};
  const w=make(canvas,o,ctl);ctl.w=w;
  const cap=el('div','vz-cap');cap.setAttribute('aria-live','polite');
- const bar=el('div','vz-bar','<button type="button" class="play">▶ Play</button><button type="button" data-a="back">‹ Back</button><button type="button" data-a="step">Step ›</button><button type="button" data-a="reset">↺ Reset</button><span class="cnt"></span>');
+ const bar=el('div','vz-bar','<button type="button" class="play">▶ Play</button><button type="button" data-a="back">‹ Back</button><button type="button" data-a="step">Step ›</button><button type="button" data-a="reset">↺ Reset</button><label class="vz-speed"><span>Speed</span><select aria-label="Animation speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label><span class="cnt"></span>');
+ ctl.factor=1;$('.vz-speed select',bar).addEventListener('change',e=>{ctl.factor=+e.target.value||1;if(ctl.timer){ctl.pause();ctl.play()}});
  box.appendChild(cap);box.appendChild(bar);
  const note=o.note||NOTE['note' in w?w.note:'sim'];if(note)box.appendChild(el('div','vz-sim',esc(note)));
  const playBtn=$('.play',bar),cnt=$('.cnt',bar);
  ctl.go=i=>{const n=w.n();ctl.i=clamp(i,0,n-1);w.draw(ctl.i);const c=w.cap?w.cap(ctl.i):(o.caps||[])[ctl.i];cap.innerHTML=md(c||'');cnt.textContent=(ctl.i+1)+' / '+n};
  ctl.pause=()=>{clearInterval(ctl.timer);ctl.timer=null;playBtn.textContent='▶ Play'};
- ctl.play=()=>{if(ctl.timer){ctl.pause();return}if(ctl.i>=w.n()-1)ctl.go(0);playBtn.textContent='⏸ Pause';ctl.timer=setInterval(()=>{if(ctl.i>=w.n()-1){ctl.pause();return}ctl.go(ctl.i+1)},o.speed||1700)};
+ ctl.play=()=>{if(ctl.timer){ctl.pause();return}if(ctl.i>=w.n()-1)ctl.go(0);playBtn.textContent='⏸ Pause';ctl.timer=setInterval(()=>{if(ctl.i>=w.n()-1){ctl.pause();return}ctl.go(ctl.i+1)},(o.speed||1700)/(ctl.factor||1))};
  ctl.step=()=>{ctl.pause();ctl.go(ctl.i+1)};ctl.back=()=>{ctl.pause();ctl.go(ctl.i-1)};ctl.reset=()=>{ctl.pause();if(w.reset)w.reset();ctl.go(0)};
  ctl.destroy=()=>{ctl.pause();if(w.destroy)w.destroy()};
  playBtn.addEventListener('click',ctl.play);
@@ -129,21 +153,21 @@ Viz.cards=(c,o)=>{
 };
 /* a variable as a labelled box */
 Viz.variable=(c,o)=>{
- const kw=o.keyword||'var',fmt=v=>typeof v==='string'?'"'+v+'"':String(v);
- c.innerHTML='<div class="vv"><div class="vz-code1 vv-code"></div><div class="vv-box"><span class="vv-label">'+esc(o.name)+'</span><span class="vv-val"></span><span class="vv-type">'+esc(o.type)+'</span></div><div class="vz-console vv-out"></div></div>';
+ const T=o.dtype||'Int',kw=o.keyword||'var',fmt=v=>typeof v==='string'?'"'+v+'"':String(v);
+ c.innerHTML='<div class="vv"><div class="vz-code1 vv-code"></div><div class="vv-box"><span class="vv-label">'+esc(o.name)+'</span><span class="vv-val"></span><span class="vv-type">'+esc(T)+'</span></div><div class="vz-console vv-out"></div></div>';
  const code=$('.vv-code',c),val=$('.vv-val',c),out=$('.vv-out',c),box=$('.vv-box',c);
  const steps=[{t:'decl'}];o.values.forEach((v,k)=>steps.push({t:k?'set':'init',v}));if(o.tryChange!==undefined)steps.push({t:'err',v:o.tryChange});steps.push({t:'print'});
  let prev=null;
  return{n:()=>steps.length,note:'logic',
   draw(i){let cur=null,lines=[];
-   for(let k=0;k<=i;k++){const s=steps[k];if(s.t==='init'){cur=s.v;lines.push(kw+' '+o.name+': '+o.type+' = '+fmt(s.v))}else if(s.t==='set'){cur=s.v;lines.push(o.name+' = '+fmt(s.v))}else if(s.t==='err')lines.push(o.name+' = '+fmt(s.v)+'   // ✗ not allowed');else if(s.t==='print')lines.push('println('+o.name+')')}
-   const s=steps[i];if(s.t==='decl')lines=[kw+' '+o.name+': '+o.type];
+   for(let k=0;k<=i;k++){const s=steps[k];if(s.t==='init'){cur=s.v;lines.push(kw+' '+o.name+': '+T+' = '+fmt(s.v))}else if(s.t==='set'){cur=s.v;lines.push(o.name+' = '+fmt(s.v))}else if(s.t==='err')lines.push(o.name+' = '+fmt(s.v)+'   // ✗ not allowed');else if(s.t==='print')lines.push('println('+o.name+')')}
+   const s=steps[i];if(s.t==='decl')lines=[kw+' '+o.name+': '+T];
    code.innerHTML=lines.map(l=>hlLine(l,'kotlin')).join('\n');
    $$('.vv-old',box).forEach(x=>x.remove());
    if(prev!==null&&cur!==null&&cur!==prev)box.appendChild(el('span','vv-old',esc(fmt(prev))));
    val.textContent=cur===null?'':fmt(cur);val.classList.remove('on-pop');void val.offsetWidth;if(s.t==='init'||s.t==='set')val.classList.add('on-pop');
-   out.innerHTML=s.t==='err'?'<span class="vv-err">Error: Val cannot be reassigned</span>':s.t==='print'?esc(String(cur)):'';prev=cur},
-  cap(i){const s=steps[i];return s.t==='decl'?'A variable is a **labelled box**. `'+o.name+'` is the label; `'+o.type+'` decides what can go inside.':s.t==='init'?'The value **'+fmt(s.v)+'** is stored in the box.':s.t==='set'?'The old value is thrown away. The box now holds **'+fmt(s.v)+'**.':s.t==='err'?'`val` boxes are **sealed**: changing them is a compile-time error.':'`println('+o.name+')` reads the box and prints the **current** value.'}};
+   out.innerHTML=s.t==='err'?'<span class="vv-err">error: \'val\' cannot be reassigned</span>':s.t==='print'?esc(String(cur)):'';prev=cur},
+  cap(i){const s=steps[i];return s.t==='decl'?'A variable is a **labelled box**. `'+o.name+'` is the label; `'+T+'` decides what can go inside.':s.t==='init'?'The value **'+fmt(s.v)+'** is stored in the box.':s.t==='set'?'The old value is thrown away. The box now holds **'+fmt(s.v)+'**.':s.t==='err'?'`val` boxes are **sealed**: changing them is a compile-time error.':'`println('+o.name+')` reads the box and prints the **current** value.'}};
 };
 /* if / else-if / else and when */
 Viz.decision=(c,o,ctl)=>{
@@ -327,8 +351,8 @@ Viz.tree=(c,o)=>{
 /* code ↔ phone mapping (XML layouts, Compose) */
 Viz.xmlphone=(c,o)=>{
  let count=0;
- c.innerHTML='<div class="vx"><div class="vz-code1">'+o.code.map((l,k)=>'<span class="xl" data-k="'+(k+1)+'">'+(hlLine(l,o.lang||'xml')||' ')+'</span>').join('')+'</div><div>'+phone(o.app||'My App',o.views.map(v=>v.type==='button'?'<button type="button" class="w-btn" data-v="'+v.id+'">'+esc(v.text)+'</button>':v.type==='edit'?'<input class="w-edit" data-v="'+v.id+'" value="'+esc(v.text)+'" aria-label="'+esc(v.id)+'">':v.type==='image'?'<div class="w-img" data-v="'+v.id+'">'+esc(v.text||'🖼')+'</div>':'<div class="w-text" data-v="'+v.id+'">'+esc(v.text)+'</div>').join(''))+'</div></div>';
- if(o.click){const b=$('[data-v="'+o.click.btn+'"]',c);b.addEventListener('click',()=>{count++;const t=$('[data-v="'+o.click.target+'"]',c);const src=o.click.from?($('[data-v="'+o.click.from+'"]',c).value||''):'';t.textContent=o.click.text.replace('{n}',count).replace('{v}',src);t.classList.remove('on-pop');void t.offsetWidth;t.classList.add('on-pop')})}
+ c.innerHTML='<div class="vx"><div class="vz-code1">'+o.code.map((l,k)=>'<span class="xl" data-k="'+(k+1)+'">'+(hlLine(l,o.lang||'xml')||' ')+'</span>').join('')+'</div><div>'+phone(o.app||'My App',o.views.map(v=>v.type==='button'?'<button type="button" class="w-btn" data-v="'+v.id+'">'+esc(v.text)+'</button>':v.type==='edit'?'<input class="w-edit" data-v="'+v.id+'" value="'+esc(v.text)+'"'+(v.hint?' placeholder="'+esc(v.hint)+'"':'')+(v.num?' inputmode="numeric"':'')+' aria-label="'+esc(v.hint||v.id)+'">':v.type==='image'?'<div class="w-img" data-v="'+v.id+'">'+esc(v.text||'🖼')+'</div>':'<div class="w-text" data-v="'+v.id+'">'+esc(v.text)+'</div>').join(''))+'</div></div>';
+ if(o.click){const b=$('[data-v="'+o.click.btn+'"]',c);b.addEventListener('click',()=>{count++;const t=$('[data-v="'+o.click.target+'"]',c);const src=o.click.from?($('[data-v="'+o.click.from+'"]',c).value||''):'';if(o.click.fn){const vals={};$$('.w-edit',c).forEach(x=>{vals[x.dataset.v]=x.value});t.textContent=o.click.fn(vals)}else t.textContent=o.click.text.replace('{n}',count).replace('{v}',src);t.classList.remove('on-pop');void t.offsetWidth;t.classList.add('on-pop')})}
  return{n:()=>o.steps.length,note:'',
   draw(i){const s=o.steps[i],[a,b]=parseRange(s.lines);$$('.xl',c).forEach(x=>{const k=+x.dataset.k;x.classList.toggle('on',k>=a&&k<=b)});$$('[data-v]',c).forEach(v=>v.classList.toggle('hl',(s.view||'').split(',').includes(v.dataset.v)))},
   cap:i=>o.steps[i].cap};
@@ -374,6 +398,635 @@ Viz.notify=(c,o)=>{
   cap:i=>['Create a **channel** once. Users can control each channel (sound, importance) in Settings.','**Build** the notification: icon, title, text and what happens on tap.','`notify()` shows it in the status bar. On Android 13+ the app must hold **POST_NOTIFICATIONS**.','The user taps it → the **PendingIntent** opens a screen in your app.'][i]};
 };
 
+/* ---------- v2.1 widgets (Kotlin + XML upgrade) ---------- */
+const reduceMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* Android version timeline: tap a dot or step through; a card explains what changed for app developers */
+Viz.timeline=(c,o,ctl)=>{
+ const E=o.events,w=el('div','vtl');
+ const track=el('div','vtl-track');track.setAttribute('role','list');track.setAttribute('aria-label',o.label||'Timeline');
+ const B=E.map((e,k)=>{const li=el('div','vtl-item');li.setAttribute('role','listitem');const b=el('button','vtl-node','<i aria-hidden="true"></i><b>'+esc(e.y)+'</b><span>'+esc(e.short||plain(e.name))+'</span>');b.type='button';b.setAttribute('aria-label',e.y+': '+plain(e.name));
+  b.addEventListener('click',()=>{ctl.pause();ctl.go(k)});li.appendChild(b);track.appendChild(li);return b});
+ const card=el('div','vtl-card');w.appendChild(track);w.appendChild(card);c.appendChild(w);
+ return{n:()=>E.length,note:'',
+  draw(i){B.forEach((b,k)=>{b.classList.toggle('on',k<=i);b.classList.toggle('cur',k===i);if(k===i)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current')});
+   const e=E[i];card.innerHTML='<div class="vtl-head"><b>'+md(e.name)+'</b>'+(e.api?'<span class="vtl-api">API '+esc(e.api)+'</span>':'')+'<span class="vtl-year">'+esc(e.y)+'</span></div>'+(e.code?'<p class="vtl-cn">'+md(e.code)+'</p>':'')+'<p>'+md(e.what)+'</p>'+(e.dev?'<p class="vtl-dev"><b>For app developers:</b> '+md(e.dev)+'</p>':'');
+   const b=B[i],x=b.parentNode.offsetLeft-track.clientWidth/2+b.offsetWidth/2;if(track.scrollTo)track.scrollTo({left:Math.max(0,x),behavior:reduceMotion()?'auto':'smooth'});else track.scrollLeft=x},
+  cap:i=>'**'+(i+1)+' / '+E.length+'** · '+E[i].y+' · '+plain(E[i].name)};
+};
+/* code tracer: highlighted line + variables box + console. Steps are hand-authored states of a program
+   whose output was checked with the real Kotlin compiler. Each step: {l:line, v:{var:value|null}, o:'printed line', n:'narration'} */
+Viz.tracer=(c,o,ctl)=>{
+ const w=el('div','vtc');c.appendChild(w);let S=[],L=[],code,vars,out,inp;
+ function build(){
+  const val=inp?+inp.value:undefined,src=o.codeFor?o.codeFor(val):o.code,steps=o.gen?o.gen(val):o.steps;
+  let cur={};S=steps.map(s=>{const prev=cur;cur=Object.assign({},cur);Object.keys(s.v||{}).forEach(k=>{if(s.v[k]===null)delete cur[k];else cur[k]=s.v[k]});
+   const ch=Object.keys(cur).filter(k=>prev[k]!==cur[k]);return Object.assign({},s,{vars:cur,changed:ch})});
+  code.innerHTML=src.split('\n').map((l,k)=>'<span class="ln" data-n="'+(k+1)+'">'+(hlLine(l,'kotlin')||' ')+'</span>').join('');L=$$('.ln',code);
+ }
+ if(o.input){const r=el('label','vtc-in','<span>'+esc(o.input.label)+' =</span><input type="range" min="'+o.input.min+'" max="'+o.input.max+'" value="'+o.input.value+'"><b class="vz-mono"></b>');w.appendChild(r);inp=$('input',r);const show=$('b',r);
+  inp.setAttribute('aria-label','Set '+o.input.label);show.textContent=inp.value;inp.addEventListener('input',()=>{show.textContent=inp.value;ctl.pause();build();ctl.go(0)})}
+ const grid=el('div','vtc-grid');w.appendChild(grid);
+ code=el('pre','vtc-code');code.tabIndex=0;code.setAttribute('aria-label','Program code');grid.appendChild(code);
+ const side=el('div','vtc-side','<div><h4>Variables</h4><table class="vtc-vars"><tbody></tbody></table></div><div><h4>Console</h4><div class="vz-console" aria-label="Console output"></div></div>');grid.appendChild(side);
+ vars=$('tbody',side);out=$('.vz-console',side);build();
+ return{n:()=>S.length,note:'logic',
+  draw(i){const s=S[i];L.forEach((x,k)=>x.classList.toggle('on',k+1===s.l));const ln=L[s.l-1];if(ln)code.scrollTop=Math.max(0,ln.offsetTop-code.clientHeight/2);
+   const keys=Object.keys(s.vars);vars.innerHTML=keys.length?keys.map(k=>'<tr'+(s.changed.includes(k)?' class="ch"':'')+'><th>'+esc(k)+'</th><td>'+esc(s.vars[k])+'</td></tr>').join(''):'<tr><td class="mu">(none yet)</td></tr>';
+   out.textContent=S.slice(0,i+1).filter(x=>x.o!=null).map(x=>x.o).join('\n')},
+  cap:i=>'Line '+S[i].l+': '+(S[i].n||'')};
+};
+/* null safety: toggle the value between a name and null and watch each operator */
+Viz.nullsafe=(c,o,ctl)=>{
+ let v=o.value||'Ali';const w=el('div','vns');
+ const tg=el('div','vns-toggle','<span class="vz-mono">var name: String? =</span><button type="button" data-v="1" aria-pressed="true">"'+esc(v)+'"</button><button type="button" data-v="0" aria-pressed="false">null</button>');
+ const R=[{c:'name.length',r:()=>['bad','✗ Does not compile'],e:'The compiler refuses: name might be null.'},
+  {c:'name?.length',r:x=>x?['ok',String(x.length)]:['warn','null'],e:'Safe call: if name is null, the whole thing is null instead of crashing.'},
+  {c:'name ?: "Guest"',r:x=>x?['ok',x]:['ok','Guest'],e:'Elvis operator: use the value on the left, or the default on the right when it is null.'},
+  {c:'name?.let { println("Hello, $it") }',r:x=>x?['ok','prints Hello, '+x]:['warn','(block skipped)'],e:'let runs the block only when name is not null. Inside, it is the name.'},
+  {c:'name!!.length',r:x=>x?['ok',String(x.length)]:['bad','💥 NullPointerException: app crashes'],e:'!! means “trust me, it is not null”. If you are wrong, the app crashes.'}];
+ const tb=el('div','vns-rows');const rows=R.map(r=>{const d=el('div','vns-row','<code>'+esc(r.c)+'</code><b></b>');tb.appendChild(d);return d});
+ w.appendChild(tg);w.appendChild(tb);c.appendChild(w);
+ $$('button',tg).forEach(b=>b.addEventListener('click',()=>{v=b.dataset.v==='1'?(o.value||'Ali'):null;$$('button',tg).forEach(x=>x.setAttribute('aria-pressed',x===b));ctl.go(ctl.i)}));
+ return{n:()=>R.length,note:'logic',
+  draw(i){rows.forEach((d,k)=>{const [cls,t]=R[k].r(v);const b=$('b',d);d.classList.toggle('on',k<=i);d.classList.toggle('cur',k===i);b.className=k<=i?cls:'';b.textContent=k<=i?t:'?'})},
+  cap:i=>'`'+R[i].c+'` with name = '+(v?'"'+v+'"':'null')+' → '+R[i].e};
+};
+/* range explorer on a 0..20 number line */
+Viz.range=(c,o,ctl)=>{
+ const w=el('div','vrg');let vals=[];
+ const f=el('div','vrg-form','<label>start<input type="number" min="0" max="20" value="'+(o.a!=null?o.a:1)+'"></label><label>kind<select><option value="..">..</option><option value="until">until</option><option value="downTo">downTo</option></select></label><label>end<input type="number" min="0" max="20" value="'+(o.b!=null?o.b:10)+'"></label><label>step<select>'+[1,2,3,4,5].map(n=>'<option>'+n+'</option>').join('')+'</select></label>');
+ const [ia,ib]=$$('input',f),[sk,ss]=$$('select',f);sk.value=o.kind||'..';ss.value=String(o.step||1);
+ const code=el('div','vrg-code vz-mono');const line=el('div','vrg-line');line.innerHTML=Array.from({length:21},(_,k)=>'<span data-k="'+k+'"><i></i><small>'+k+'</small></span>').join('');
+ const outp=el('div','vz-console');outp.setAttribute('aria-label','Printed numbers');
+ w.appendChild(f);w.appendChild(code);w.appendChild(line);w.appendChild(outp);c.appendChild(w);const D=$$('span',line);
+ function calc(){const a=clamp(Math.round(+ia.value||0),0,20),b=clamp(Math.round(+ib.value||0),0,20),s=+ss.value,k=sk.value;ia.value=a;ib.value=b;vals=[];
+  if(k==='downTo')for(let x=a;x>=b;x-=s)vals.push(x);else if(k==='until')for(let x=a;x<b;x+=s)vals.push(x);else for(let x=a;x<=b;x+=s)vals.push(x);
+  code.textContent='for (i in '+a+(k==='..'?'..':' '+k+' ')+b+(s>1?' step '+s:'')+') print("$i ")'}
+ [ia,ib,sk,ss].forEach(x=>x.addEventListener('change',()=>{ctl.pause();calc();ctl.go(0)}));calc();
+ return{n:()=>vals.length+1,note:'logic',
+  draw(i){D.forEach(d=>{const k=+d.dataset.k,j=vals.indexOf(k);d.classList.toggle('in',j>=0);d.classList.toggle('done',j>=0&&j<i-1);d.classList.toggle('cur',j>=0&&j===i-1)});outp.textContent=vals.slice(0,i).join(' ')},
+  cap:i=>!vals.length?'This range is **empty**, so the loop body never runs.':i===0?'The highlighted dots are the values this loop will visit ('+vals.length+' in total). Press Step.':'i = **'+vals[i-1]+'**'+(i===vals.length?' — that was the last value, so the loop ends.':'')};
+};
+/* filter -> map -> sum conveyor belt */
+Viz.conveyor=(c,o)=>{
+ const X=o.items,keep=o.keep,map=o.map;const S=[{t:'src'}];X.forEach((x,k)=>S.push({t:'f',k}));const K=X.filter(keep),M=K.map(map);
+ K.forEach((x,k)=>S.push({t:'m',k}));S.push({t:'sum'});
+ const w=el('div','vcv');const lane=(lbl)=>{const d=el('div','vcv-lane','<span class="vcv-l">'+lbl+'</span><div class="vcv-chips"></div>');w.appendChild(d);return $('.vcv-chips',d)};
+ const l0=lane(esc(o.name||'numbers')),l1=lane('<code>'+esc(o.f)+'</code>'),l2=lane('<code>'+esc(o.m)+'</code>'),l3=lane('<code>sum()</code>');c.appendChild(w);
+ const chip=(v,cls)=>'<i class="'+(cls||'')+'">'+esc(v)+'</i>';
+ return{n:()=>S.length,note:'logic',
+  draw(i){const s=S[i];const seen=S.slice(0,i+1);const fk=seen.filter(x=>x.t==='f').length,mk=seen.filter(x=>x.t==='m').length;
+   l0.innerHTML=X.map((x,k)=>chip(x,k<fk?'gone':(s.t==='src'||k===fk)?'cur':'')).join('');
+   l1.innerHTML=X.slice(0,fk).map((x,k)=>chip(x,(keep(x)?'ok':'drop')+(s.t==='f'&&k===s.k?' cur':''))).join('');
+   l2.innerHTML=M.slice(0,mk).map((x,k)=>chip(K[k]+' → '+x,s.t==='m'&&k===s.k?'ok cur':'ok')).join('');
+   l3.innerHTML=s.t==='sum'?chip(M.join(' + ')+' = '+M.reduce((a,b)=>a+b,0),'ok cur'):''},
+  cap:i=>{const s=S[i];if(s.t==='src')return'Start: '+(o.name||'numbers')+' = ['+X.join(', ')+']. Each item rides the belt one at a time.';
+   if(s.t==='f'){const x=X[s.k];return'filter: `it` is **'+x+'** → '+(keep(x)?'**true**, keep it':'**false**, drop it')}
+   if(s.t==='m')return'map: `it` is **'+K[s.k]+'** → becomes **'+M[s.k]+'**';return'sum() adds what is left: **'+M.reduce((a,b)=>a+b,0)+'**'}};
+};
+
+/* simplified Android Studio window: each step highlights one area (Project panel, editor, Layout Editor, Run, Device Manager, Logcat) */
+Viz.studio=(c,o)=>{
+ const code=o.code||'class MainActivity : AppCompatActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContentView(R.layout.activity_main)\n    }\n}';
+ c.innerHTML='<div class="vas" role="img" aria-label="Simplified drawing of the Android Studio window">'+
+  '<div class="vas-bar" data-p="toolbar"><span class="vas-dots" aria-hidden="true"><i></i><i></i><i></i></span><b>'+esc(o.project||'MyFirstApp')+'</b><span class="vas-dev" data-p2="device">📱 Medium Phone API 36 ▾</span><span class="vas-run" data-p2="run">▶ Run</span></div>'+
+  '<div class="vas-main"><div class="vas-proj" data-p="project"><b>Project</b><ul><li>📁 app</li><li class="i1">📁 manifests</li><li class="i2">📄 AndroidManifest.xml</li><li class="i1">📁 kotlin+java</li><li class="i2">📄 MainActivity.kt</li><li class="i1">📁 res</li><li class="i2">📁 layout</li><li class="i3">📄 activity_main.xml</li><li>🐘 Gradle Scripts</li></ul></div>'+
+  '<div class="vas-ed" data-p="editor"><div class="vas-tabs"><i class="on">MainActivity.kt</i><i>activity_main.xml</i></div><pre>'+code.split('\n').map(l=>hlLine(l,'kotlin')).join('\n')+'</pre></div>'+
+  '<div class="vas-prev" data-p="design"><b>Layout Editor</b><div class="vas-phone"><span>Hello, students!</span><i>Save</i></div></div></div>'+
+  '<div class="vas-log" data-p="logcat"><b>Logcat</b><span>D/MainActivity: onCreate called</span></div></div>';
+ const S=o.steps;const all=$$('[data-p],[data-p2]',c);
+ return{n:()=>S.length,note:o.note===undefined?'A simplified drawing. Real Android Studio has more buttons, but these areas are in the same places.':o.note,
+  draw(i){const k=S[i].p;all.forEach(e=>{const on=e.dataset.p===k||e.dataset.p2===k;e.classList.toggle('hl',on)});c.firstChild.classList.toggle('focus',!!k)},
+  cap:i=>S[i].cap};
+};
+
+/* XML attribute lab: change orientation, gravity, textSize, button width and layout_weight; the XML and the phone update together */
+Viz.attrlab=(c,o,ctl)=>{
+ const st=Object.assign({ori:'vertical',grav:'center',size:22,bw:'wrap_content',weight:'none'},o.start||{});
+ const w=el('div','val');
+ const f=el('div','val-form',
+  '<label>orientation<select data-k="ori"><option>vertical</option><option>horizontal</option></select></label>'+
+  '<label>gravity<select data-k="grav"><option>start</option><option>center</option><option>end</option></select></label>'+
+  '<label>textSize<select data-k="size"><option>14</option><option>18</option><option>22</option><option>28</option></select></label>'+
+  '<label>button width<select data-k="bw"><option>wrap_content</option><option>match_parent</option></select></label>'+
+  '<label>layout_weight<select data-k="weight"><option value="none">none</option><option value="11">1 : 1</option><option value="12">1 : 2</option></select></label>');
+ const grid=el('div','val-grid');const code=el('pre','val-code');code.tabIndex=0;code.setAttribute('aria-label','XML that matches the phone');
+ const ph=el('div','val-ph');grid.appendChild(code);grid.appendChild(ph);w.appendChild(f);w.appendChild(grid);c.appendChild(w);
+ const S=$$('select',f);let prev=null;
+ function xml(){const wt=st.weight!=='none',hz=st.ori==='horizontal',bw=wt?'0dp':st.bw;const dim=hz?'layout_width':'layout_height';
+  const btn=(id,txt,wv)=>['    <Button','        android:id="@+id/'+id+'"','        android:layout_width="'+(wt&&hz?'0dp':st.bw)+'"','        android:layout_height="'+(wt&&!hz?'0dp':'wrap_content')+'"',(wt?'        android:layout_weight="'+wv+'"':null),'        android:text="'+txt+'" />'].filter(x=>x!==null);
+  return ['<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"','    android:layout_width="match_parent"','    android:layout_height="match_parent"','    android:orientation="'+st.ori+'"','    android:gravity="'+st.grav+'"','    android:padding="16dp">','','    <TextView','        android:id="@+id/txtHello"','        android:layout_width="wrap_content"','        android:layout_height="wrap_content"','        android:text="Hello"','        android:textSize="'+st.size+'sp" />','']
+   .concat(btn('btnOne','One',1),btn('btnTwo','Two',st.weight==='12'?2:1)).concat(['</LinearLayout>'])}
+ function render(){S.forEach(s=>{s.value=String(st[s.dataset.k])});const L=xml();
+  code.innerHTML=L.map((l,k)=>'<span class="ln'+(prev&&prev[k]!==l?' on':'')+'">'+(hlLine(l,'xml')||' ')+'</span>').join('');prev=L;
+  const hz=st.ori==='horizontal',wt=st.weight!=='none',al={start:'flex-start',center:'center',end:'flex-end'}[st.grav];
+  const bstyle=k=>wt?'flex:'+(k===2&&st.weight==='12'?2:1)+' 1 0;overflow:hidden;'+(hz?'min-width:0;padding-left:0;padding-right:0':'min-height:0;padding-top:0;padding-bottom:0'):(st.bw==='match_parent'?(hz?'flex:1 1 auto':'align-self:stretch'):'');
+  ph.innerHTML=phone('My App','<div class="val-root" style="flex-direction:'+(hz?'row':'column')+';justify-content:'+al+';align-items:'+al+'"><div class="w-text" style="font-size:'+(st.size/16)+'em">Hello</div><button type="button" class="w-btn" style="'+bstyle(1)+'">One</button><button type="button" class="w-btn" style="'+bstyle(2)+'">Two</button></div>')}
+ S.forEach(s=>s.addEventListener('change',()=>{const k=s.dataset.k;st[k]=k==='size'?+s.value:s.value;ctl.pause();render()}));
+ const steps=o.steps||[];render();
+ return{n:()=>steps.length,note:'',
+  draw(i){Object.assign(st,steps[i].set||{});render()},
+  cap:i=>steps[i].cap};
+};
+/* AutoCompleteTextView: suggestions appear after `threshold` letters, matching the start of an item (or of a word in it), ignoring case */
+Viz.autocomplete=(c,o,ctl)=>{
+ const items=o.items;let th=o.threshold||2;
+ const w=el('div','vac');
+ const f=el('div','vac-form','<label>threshold<select><option value="1">1</option><option value="2">2 (default)</option><option value="3">3</option></select></label>');
+ const body='<div class="vac-box"><input class="w-edit" type="text" placeholder="'+esc(o.hint||'Enter country')+'" aria-label="'+esc(o.hint||'Enter country')+'" autocomplete="off"><ul class="vac-list" role="listbox"></ul></div><div class="w-text vac-out"></div>';
+ const ph=el('div');ph.innerHTML=phone(o.app||'Countries',body);w.appendChild(f);w.appendChild(ph);c.appendChild(w);
+ const inp=$('input',ph),list=$('.vac-list',ph),out=$('.vac-out',ph),sel=$('select',f);sel.value=String(th);
+ const match=t=>{const q=t.toLowerCase();return items.filter(x=>x.toLowerCase().startsWith(q)||x.toLowerCase().split(/\s+/).some(wd=>wd.startsWith(q)))};
+ function show(){const t=inp.value;const L=t.length>=th?match(t):[];list.innerHTML=L.map(x=>'<li role="option"><button type="button">'+esc(x)+'</button></li>').join('');
+  $$('button',list).forEach(b=>b.addEventListener('click',()=>{inp.value=b.textContent;list.innerHTML='';out.textContent='Selected: '+b.textContent}));
+  return L}
+ inp.addEventListener('input',()=>{ctl.pause();out.textContent='';show()});
+ sel.addEventListener('change',()=>{th=+sel.value;show()});
+ const steps=o.steps||[];
+ return{n:()=>steps.length,note:'',
+  draw(i){const s=steps[i];if(s.threshold){th=s.threshold;sel.value=String(th)}inp.value=s.type||'';out.textContent='';const L=show();this._n=L.length},
+  cap(i){const s=steps[i],t=s.type||'',L=t.length>=th?match(t):[];return s.cap+(t?' — typed **"'+t+'"** ('+t.length+' letter'+(t.length===1?'':'s')+', threshold '+th+'): '+(L.length?L.length+' suggestion'+(L.length>1?'s':''):'**no suggestions**'):'')}};
+};
+
+/* Activity back stack: each step pushes (startActivity) or pops (Back / finish) a screen */
+Viz.backstack=(c,o)=>{
+ const S=[[]];o.ops.forEach(op=>{const cur=S[S.length-1].slice();if(op[0]==='push')cur.push(op[1]);else cur.pop();S.push(cur)});
+ const w=el('div','vbs');const st=el('div','vbs-stack');st.setAttribute('aria-label','Back stack, top first');const scr=el('div','vbs-screen');w.appendChild(st);w.appendChild(scr);c.appendChild(w);
+ return{n:()=>S.length,note:'',
+  draw(i){const cur=S[i],prev=S[i-1]||[];const pushed=i>0&&o.ops[i-1][0]==='push';
+   st.innerHTML=cur.length?cur.slice().reverse().map((a,k)=>'<div class="vbs-card'+(k===0?' top':'')+(k===0&&pushed?' in':'')+'"><b>'+esc(a)+'</b>'+(k===0?'<small>visible</small>':'<small>waiting below</small>')+'</div>').join(''):'<div class="vbs-empty">Stack empty → home screen</div>';
+   scr.innerHTML=phone(cur.length?cur[cur.length-1]:'Home screen',cur.length?'<div class="w-text">'+esc((o.texts||{})[cur[cur.length-1]]||'')+'</div>':'<div class="w-text" style="color:#64748b">📱 Your app is closed</div>')},
+  cap(i){if(!i)return o.intro||'The app is not running yet.';const op=o.ops[i-1];return op[0]==='push'?'`startActivity(…)` **pushes** '+op[1]+' on top. The user now sees it.':'**Back** (or `finish()`) **pops** the top screen; the one below becomes visible again.'}};
+};
+
+/* Permission life-cycle (Android 11+ rules): deny once → explain (rationale) and ask again; deny twice → the dialog no longer appears → send the user to Settings */
+Viz.permlife=(c,o,ctl)=>{
+ const P=o.perm||'CAMERA';let st;
+ const reset=()=>{st={granted:false,denies:0,dialog:false,rationale:false,settings:false,log:[]}};reset();
+ const w=el('div','vpl');const ph=el('div','vpl-ph');const side=el('div','vpl-side');w.appendChild(ph);w.appendChild(side);c.appendChild(w);
+ const rationale=()=>st.denies===1&&!st.granted;               /* shouldShowRequestPermissionRationale */
+ const blocked=()=>st.denies>=2&&!st.granted;                 /* the system no longer shows the dialog */
+ function tap(){st.dialog=false;st.rationale=false;st.settings=false;
+  if(st.granted){st.log.push('✅ Already granted → '+o.feature);return}
+  if(blocked()){st.log.push('🚫 launch() → no dialog, answer = denied at once');st.settings=true;return}
+  if(rationale()){st.rationale=true;st.log.push('💡 rationale: explain why, then ask again');return}
+  st.dialog=true;st.log.push('💬 system dialog shown')}
+ function answer(a){if(!st.dialog)return;st.dialog=false;if(a){st.granted=true;st.log.push('✅ Allow → '+o.feature)}else{st.denies++;st.log.push('❌ Don’t allow ('+st.denies+')')}}
+ function cont(){if(!st.rationale)return;st.rationale=false;st.dialog=true;st.log.push('💬 system dialog shown again')}
+ function settings(){st.settings=false;st.granted=true;st.log.push('⚙️ user allowed it in Settings → '+o.feature)}
+ const acts={tap,allow:()=>answer(true),deny:()=>answer(false),cont,settings,reset};
+ function render(){let body='<button type="button" class="w-btn" data-x="tap">'+esc(o.action)+'</button>';
+  if(st.granted)body+='<div class="w-img">'+esc(o.icon||'📷')+'</div>';
+  if(st.dialog)body+='<div class="phone-dim"></div><div class="phone-dialog"><p>Allow <b>'+esc(o.app)+'</b> to '+esc(o.ask)+'?</p><div class="acts"><button type="button" data-x="deny">Don’t allow</button><button type="button" data-x="allow">Allow</button></div></div>';
+  if(st.rationale)body+='<div class="phone-dim"></div><div class="phone-dialog"><p><b>Why we need this</b><br>'+esc(o.why)+'</p><div class="acts"><button type="button" data-x="cont">Continue</button></div></div>';
+  if(st.settings)body+='<div class="phone-dim"></div><div class="phone-dialog"><p>'+esc(o.blockedMsg)+'</p><div class="acts"><button type="button" data-x="settings">Open Settings</button></div></div>';
+  ph.innerHTML=phone(o.app,body);
+  side.innerHTML='<table class="vtc-vars"><tbody><tr><th>granted</th><td>'+st.granted+'</td></tr><tr><th>times denied</th><td>'+st.denies+'</td></tr><tr><th>shouldShow…Rationale</th><td>'+rationale()+'</td></tr><tr><th>dialog still shown?</th><td>'+(!blocked())+'</td></tr></tbody></table><div class="vz-console">'+esc(st.log.slice(-6).join('\n'))+'</div><button type="button" class="vz-btn" data-x="reset">↺ New install</button>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();acts[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'',
+  draw(i){reset();for(let k=1;k<=i;k++)acts[S[k].a]();render()},
+  cap:i=>S[i].cap};
+};
+
+/* scaleType lab: one wide picture in a fixed 200dp box. CSS object-fit matches Android: centerCrop=cover, fitCenter=contain, centerInside=scale-down, fitXY=fill */
+const PIC='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><rect width="240" height="120" fill="#0ea5e9"/><circle cx="40" cy="30" r="16" fill="#fde047"/><path d="M0 120 L70 50 L120 100 L170 40 L240 120 Z" fill="#065f46"/><rect x="0" y="0" width="240" height="120" fill="none" stroke="#f43f5e" stroke-width="6"/><text x="120" y="70" font-family="sans-serif" font-size="22" font-weight="bold" fill="#fff" text-anchor="middle">logo.png</text></svg>');
+Viz.scaletype=(c,o,ctl)=>{
+ const T=[['centerCrop','cover','Fills the whole box; the extra edges are cut off.'],['fitCenter','contain','The whole picture is visible and centred; empty strips may appear.'],['centerInside','scale-down','Like fitCenter, but never makes a small picture bigger.'],['fitXY','fill','Stretches to fill the box exactly; the picture can look squashed.']];
+ const w=el('div','vsc');const sel=el('div','vsc-form','<label>android:scaleType<select>'+T.map(t=>'<option>'+t[0]+'</option>').join('')+'</select></label><span class="vz-mono">200dp × 200dp ImageView · picture 2:1 (wide)</span>');
+ const box=el('div','vsc-box','<img alt="A wide picture with a red border, shown inside a square ImageView">');w.appendChild(sel);w.appendChild(box);c.appendChild(w);
+ const s=$('select',sel),img=$('img',box);img.src=o.src||PIC;let cur=0;
+ s.addEventListener('change',()=>{ctl.pause();cur=T.findIndex(t=>t[0]===s.value);img.style.objectFit=T[cur][1];ctl.go(cur)});
+ return{n:()=>T.length,note:'',draw(i){cur=i;s.value=T[i][0];img.style.objectFit=T[i][1]},cap:i=>'**'+T[i][0]+'** — '+T[i][2]+' Watch the red border.'};
+};
+/* animation lab: choose a tween type and duration; shows the res/anim XML and plays it on the logo */
+Viz.animlab=(c,o,ctl)=>{
+ const st={type:'alpha',dur:2000};
+ const w=el('div','vanl');
+ const f=el('div','vanl-form','<label>type<select data-k="type"><option value="alpha">alpha (fade)</option><option value="translate">translate (move)</option><option value="scale">scale (grow)</option><option value="rotate">rotate (spin)</option></select></label><label>duration<select data-k="dur"><option value="500">500 ms</option><option value="1000">1000 ms</option><option value="2000">2000 ms</option></select></label><button type="button" class="vz-btn" data-x="run">▶ startAnimation()</button>');
+ const grid=el('div','vanl-grid');const code=el('pre','val-code');code.tabIndex=0;const stage=el('div','vanl-stage','<div class="vanl-track"><div class="vanl-logo" role="img" aria-label="App logo">🤖</div></div><div class="vanl-t vz-mono">t = 0 ms</div>');
+ grid.appendChild(code);grid.appendChild(stage);w.appendChild(f);w.appendChild(grid);c.appendChild(w);
+ const logo=$('.vanl-logo',stage),tl=$('.vanl-t',stage);let anim=null,raf=0;
+ const X={alpha:d=>['<alpha xmlns:android="http://schemas.android.com/apk/res/android"','    android:duration="'+d+'"','    android:fromAlpha="0.0"','    android:toAlpha="1.0" />'],
+  translate:d=>['<translate xmlns:android="http://schemas.android.com/apk/res/android"','    android:duration="'+d+'"','    android:fromXDelta="0%"','    android:toXDelta="100%" />'],
+  scale:d=>['<scale xmlns:android="http://schemas.android.com/apk/res/android"','    android:duration="'+d+'"','    android:fromXScale="0.5"','    android:toXScale="1.5"','    android:fromYScale="0.5"','    android:toYScale="1.5"','    android:pivotX="50%"','    android:pivotY="50%" />'],
+  rotate:d=>['<rotate xmlns:android="http://schemas.android.com/apk/res/android"','    android:duration="'+d+'"','    android:fromDegrees="0"','    android:toDegrees="360"','    android:pivotX="50%"','    android:pivotY="50%" />']};
+ const K={alpha:[{opacity:0},{opacity:1}],translate:[{transform:'translateX(0)'},{transform:'translateX(100%)'}],scale:[{transform:'scale(.5)'},{transform:'scale(1.5)'}],rotate:[{transform:'rotate(0deg)'},{transform:'rotate(360deg)'}]};
+ function show(){$$('select',f).forEach(s=>{s.value=String(st[s.dataset.k])});code.innerHTML=X[st.type](st.dur).map(l=>'<span class="ln">'+(hlLine(l,'xml')||' ')+'</span>').join('');}
+ function run(){if(anim)anim.cancel();cancelAnimationFrame(raf);const reduce=reduceMotion();
+  if(reduce||!logo.animate){logo.style.opacity='';logo.style.transform=K[st.type][1].transform||'';tl.textContent='Reduced motion: showing the end state (t = '+st.dur+' ms)';return}
+  anim=logo.animate(K[st.type],{duration:st.dur,easing:'linear'});const t0=performance.now();
+  const tick=()=>{const t=Math.min(st.dur,Math.round(performance.now()-t0));tl.textContent='t = '+t+' ms';if(t<st.dur)raf=requestAnimationFrame(tick);else tl.textContent='t = '+st.dur+' ms — finished; the view jumps back (fillAfter is false)'};raf=requestAnimationFrame(tick)}
+ $$('select',f).forEach(s=>s.addEventListener('change',()=>{const k=s.dataset.k;st[k]=k==='dur'?+s.value:s.value;ctl.pause();show()}));
+ $('[data-x]',f).addEventListener('click',run);show();
+ const S=o.steps;
+ return{n:()=>S.length,note:'',draw(i){Object.assign(st,S[i].set||{});show();if(S[i].play)run()},cap:i=>S[i].cap,
+  destroy(){if(anim)anim.cancel();cancelAnimationFrame(raf)}};
+};
+
+/* SharedPreferences live demo: the phone UI on one side, the real MyPrefs.xml file on the other. "Close app" clears the screen but not the file. */
+Viz.prefsdemo=(c,o,ctl)=>{
+ let file={},screen={name:'',age:'',result:''},open=true,log=[];
+ const w=el('div','vpd');const ph=el('div','vpd-ph');const side=el('div','vpd-side');w.appendChild(ph);w.appendChild(side);c.appendChild(w);
+ const xml=()=>{const L=["<?xml version='1.0' encoding='utf-8' standalone='yes' ?>",'<map>'];
+  if(file.username!==undefined)L.push('    <string name="username">'+file.username.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</string>');
+  if(file.userage!==undefined)L.push('    <int name="userage" value="'+file.userage+'" />');L.push('</map>');return L};
+ const A={
+  type(v){screen.name=v.name;screen.age=v.age},
+  save(){const age=parseInt(screen.age,10);if(!/^[+-]?\d+$/.test(String(screen.age).trim())||!(age>=-2147483648&&age<=2147483647)){log.push('Toast: Enter a valid age');return}
+   file.username=screen.name;file.userage=age;log.push('apply() → saved to MyPrefs.xml')},
+  load(){screen.result='Name: '+(file.username!==undefined?file.username:'No Name')+'\nAge: '+(file.userage!==undefined?file.userage:0);log.push('getString / getInt → shown on screen')},
+  close(){open=false;screen={name:'',age:'',result:''};log.push('app closed — the screen is gone')},
+  reopen(){open=true;log.push('app opened again')},
+  clear(){file={};log.push('edit().clear().apply() → file emptied')},
+  reset(){file={};screen={name:'',age:'',result:''};open=true;log=[]}};
+ function render(){
+  const body=open?'<input class="w-edit" data-f="name" placeholder="Enter Name" aria-label="Name" value="'+esc(screen.name)+'"><input class="w-edit" data-f="age" placeholder="Enter Age" inputmode="numeric" aria-label="Age" value="'+esc(screen.age)+'"><button type="button" class="w-btn" data-x="save">Save Data</button><button type="button" class="w-btn" data-x="load">Load Data</button><div class="w-text vpd-res">'+esc(screen.result).replace(/\n/g,'<br>')+'</div>':'<div class="w-text" style="color:#64748b">📱 App closed</div><button type="button" class="w-btn" data-x="reopen">Open the app again</button>';
+  ph.innerHTML=phone('SharedPrefDemo',body);
+  side.innerHTML='<h4 class="vpd-h">/data/data/…/shared_prefs/MyPrefs.xml</h4><pre class="val-code vpd-file">'+xml().map(l=>'<span class="ln">'+hlLine(l,'xml')+'</span>').join('')+'</pre><div class="vz-console">'+esc(log.slice(-4).join('\n'))+'</div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="close">Close app</button><button type="button" class="vz-btn" data-x="clear">Clear prefs</button></div>';
+  $$('[data-f]',ph).forEach(i=>i.addEventListener('input',()=>{screen[i.dataset.f]=i.value}));
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'',draw(i){A.reset();for(let k=0;k<=i;k++)if(S[k].a)A[S[k].a](S[k].v);render()},cap:i=>S[i].cap};
+};
+/* Storage chooser: four yes/no questions → the storage the instructor's decision guide recommends */
+Viz.storechooser=(c,o,ctl)=>{
+ const Q=[['small','Is it only a few small settings (name, theme, a flag)?'],['net','Must several users or devices share the data?'],['live','Must changes appear on other phones instantly (real time)?'],['php','Do you already have a PHP / web server and database?']];
+ const st={small:true,net:false,live:false,php:false};
+ const w=el('div','vsch');const qs=el('div','vsch-q');const out=el('div','vsch-out');w.appendChild(qs);w.appendChild(out);c.appendChild(w);
+ function pick(){if(!st.net)return st.small?['🗝️','SharedPreferences','Small settings on this phone only. (Lecture 8 — today)']:['🗃️','SQLite (or Room)','Structured records on this phone, offline. (Lecture 11)'];
+  if(st.live||!st.php)return['🔥','Firebase','Shared cloud data with real-time sync and no server to run. (Lecture 12)'];return['🖥️','MySQL + PHP','Shared data through your own web server. (Lecture 13)']}
+ function render(){qs.innerHTML=Q.map(([k,t])=>'<div class="vsch-row"><span>'+esc(t)+'</span><span class="vsch-yn"><button type="button" data-k="'+k+'" data-v="1" aria-pressed="'+st[k]+'">Yes</button><button type="button" data-k="'+k+'" data-v="0" aria-pressed="'+!st[k]+'">No</button></span></div>').join('');
+  const p=pick();out.innerHTML='<span class="vsch-ic">'+p[0]+'</span><div><b>'+esc(p[1])+'</b><small>'+esc(p[2])+'</small></div>';
+  $$('[data-k]',qs).forEach(b=>b.addEventListener('click',()=>{ctl.pause();st[b.dataset.k]=b.dataset.v==='1';render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap+' → **'+pick()[1]+'**'};
+};
+/* Rotation lab: one counter kept three ways (plain Activity variable, onSaveInstanceState Bundle, ViewModel) through rotate, process death and finish(). The callbacks appear in a Logcat box. */
+Viz.rotatelab=(c,o,ctl)=>{
+ let st,log;
+ const w=el('div','vrl');c.appendChild(w);
+ const L=(...a)=>a.forEach(x=>log.push(x));
+ const A={
+  reset(){st={v:0,b:0,m:0,saved:0,land:false,gone:false,bg:false,spin:false};log=[]},
+  open(){L('onCreate(savedInstanceState = null)','onStart()','onResume()')},
+  plus(v){if(st.gone||st.bg)return;const n=v||1;st.v+=n;st.b+=n;st.m+=n;L('tap + → count = '+st.m)},
+  rotate(){if(st.gone||st.bg)return;st.saved=st.b;L('— rotate —','onPause()','onStop()','onSaveInstanceState(outState)  // count saved','onDestroy()  // old object gone','onCreate(savedInstanceState ≠ null)','onStart()','onResume()');st.land=!st.land;st.v=0;st.b=st.saved;st.spin=true},
+  home(){if(st.gone||st.bg)return;st.saved=st.b;st.bg=true;L('— Home —','onPause()','onStop()','onSaveInstanceState(outState)')},
+  kill(){if(!st.bg)return;L('— system needs memory: process killed —','(no onDestroy is called!)');st.v=0;st.m=0;st.b=0;st.killed=true},
+  back(){if(!st.bg)return;st.bg=false;if(st.killed){st.b=st.saved;st.killed=false;L('— user returns —','onCreate(savedInstanceState ≠ null)','onStart()','onResume()')}else L('— user returns —','onRestart()','onStart()','onResume()')},
+  finish(){if(st.gone||st.bg)return;st.gone=true;L('— finish() —','onPause()','onStop()','onDestroy()  // nothing is saved');st.v=0;st.b=0;st.m=0},
+  reopen(){if(!st.gone)return;st.gone=false;A.open()}};
+ const cell=(icon,name,val,note)=>'<div class="vrl-cell"><span class="vrl-ic">'+icon+'</span><small>'+esc(name)+'</small><b>'+val+'</b><em>'+esc(note)+'</em></div>';
+ function render(){
+  const body=st.gone?'<div class="w-text" style="color:#64748b">Activity finished</div><button type="button" class="w-btn" data-x="reopen">Open again</button>':st.bg?'<div class="w-text" style="color:#64748b">🏠 App in the background</div>'+(st.killed?'':'<button type="button" class="w-btn" data-x="kill">Kill the process</button>')+'<button type="button" class="w-btn" data-x="back">Return to the app</button>':'<div class="w-text vrl-big">'+st.b+'</div><button type="button" class="w-btn" data-x="plus">+ 1</button>';
+  w.innerHTML='<div class="vrl-ph'+(st.land?' land':'')+(st.spin&&!reduceMotion()?' spin':'')+'">'+phone('CounterApp · '+(st.land?'landscape':'portrait'),body)+'</div><div class="vrl-side"><div class="vrl-cells">'+cell('📦','var count in the Activity',st.gone||st.bg&&st.killed?0:st.v,'lost on rotation')+cell('💾','onSaveInstanceState Bundle',st.gone?0:(st.bg?st.saved:st.b),'survives rotation and process death')+cell('🧠','ViewModel',st.gone||st.killed?0:st.m,'survives rotation')+'</div><div class="vz-console vrl-log">'+esc(log.slice(-8).join('\n'))+'</div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="rotate">🔄 Rotate</button><button type="button" class="vz-btn" data-x="home">🏠 Home</button><button type="button" class="vz-btn" data-x="finish">✖ finish()</button></div></div>';
+  st.spin=false;
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'',draw(i){A.reset();A.open();for(let k=0;k<=i;k++)if(S[k].a)A[S[k].a](S[k].v);render()},cap:i=>S[i].cap};
+};
+/* Splash race: what the user sees over time with the old 3-second SplashActivity vs the SplashScreen API. */
+Viz.splashrace=(c,o,ctl)=>{
+ const lanes=o.lanes,max=o.max||4;
+ const w=el('div','vsr');c.appendChild(w);
+ function at(l,t){let cur=l.segs[0];for(const s of l.segs)if(t>=s[0])cur=s;return cur}
+ function render(t){
+  w.innerHTML=lanes.map(l=>{const cur=at(l,t);
+   return '<div class="vsr-lane"><div class="vsr-h"><b>'+esc(l.label)+'</b><small>'+esc(l.sub||'')+'</small></div><div class="vsr-row"><div class="vsr-mini" style="background:'+cur[3]+'"><span>'+cur[2]+'</span><small>'+esc(cur[1])+'</small></div><div class="vsr-bar">'+l.segs.map((s,k)=>{const e=k+1<l.segs.length?l.segs[k+1][0]:max;return '<i style="left:'+(s[0]/max*100)+'%;width:'+((e-s[0])/max*100)+'%;background:'+s[3]+';opacity:'+(t>=s[0]?1:.25)+'" title="'+esc(s[1])+'"><span>'+esc(s[1])+'</span></i>'}).join('')+'<em class="vsr-cur" style="left:'+(Math.min(t,max)/max*100)+'%"></em></div></div></div>'}).join('')+'<div class="vsr-t">t = '+t.toFixed(1)+' s</div>'}
+ const S=o.script;
+ return{n:()=>S.length,note:'',draw(i){render(S[i].t)},cap:i=>S[i].cap};
+};
+/* getView lab: scroll a ListView one row per step; count getView(), inflate() and findViewById() calls with row reuse and the ViewHolder (binding in tag) switched on or off. */
+Viz.getviewlab=(c,o,ctl)=>{
+ const V=o.visible||5,items=o.items,N=items.length,F=o.fields||4,opt={reuse:true,holder:true};
+ const cols=['#2563eb','#0891b2','#7c3aed','#059669','#d97706','#db2777'];
+ const w=el('div','vgv');c.appendChild(w);
+ const tg=(k,label)=>'<button type="button" class="vz-btn" data-o="'+k+'" aria-pressed="'+opt[k]+'">'+(opt[k]?'✓ ':'✗ ')+label+'</button>';
+ function render(i){
+  const calls=V+i,infl=opt.reuse?V+(i>0?1:0):calls,find=F*(opt.holder&&opt.reuse?infl:calls);
+  let rows='';for(let p=i;p<i+V;p++){const id=opt.reuse?p%(V+1):p,isNew=i>0&&p===i+V-1;rows+='<div class="vgv-row'+(isNew?' new':'')+'"><i style="background:'+cols[id%cols.length]+'">'+(opt.reuse?'#'+(id+1):'new')+'</i><span>'+esc(items[p])+'</span><small>pos '+p+'</small></div>'}
+  const last=i===0?'first screen: getView(0…'+(V-1)+', convertView = null) → inflate '+V+' rows':'getView('+(i+V-1)+', convertView = '+(opt.reuse?(i===1?'null) → nothing scrapped yet: inflate one spare row':'row #'+((i+V-1)%(V+1)+1)+') → reuse it'):'ignored) → inflate a NEW row')+(opt.holder&&opt.reuse?', views from tag':', findViewById() × '+F);
+  w.innerHTML='<div class="vgv-win">'+rows+'</div><div class="vgv-side"><div class="vgv-stats"><div><b>'+N+'</b>songs in the list</div><div><b>'+calls+'</b>getView() calls</div><div class="'+(infl>V+1?'bad':'')+'"><b>'+infl+'</b>rows inflated</div><div class="'+(find>F*(V+1)?'bad':'')+'"><b>'+find+'</b>findViewById() calls</div></div><div class="vz-console">'+esc(last)+'</div><div class="vpd-acts">'+tg('reuse','Reuse convertView')+tg('holder','ViewHolder (tag)')+'</div></div>';
+  $$('[data-o]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();opt[b.dataset.o]=!opt[b.dataset.o];render(ctl.i||0)}))}
+ return{n:()=>Math.min(N-V+1,o.steps||10),note:'sim',draw(i){render(i)},
+  cap:i=>i===0?'Only the **'+V+' visible rows** are inflated, even though the list has **'+N+'** songs.':i===1?'First scroll: the new bottom row appears before the top one leaves, so **one spare row** is inflated (6 in total).':'Scrolled '+i+' rows: the row that left the top is handed back as **convertView** and filled with song **'+(i+V-1)+'**. Switch the options off to see the cost.'};
+};
+/* Latitude / longitude map: equirectangular grid; step through cities, or tap one. */
+Viz.latlng=(c,o,ctl)=>{
+ const P=o.places,w=el('div','vll');c.appendChild(w);
+ const X=lon=>lon+180,Y=lat=>90-lat;
+ let grid='';for(let lo=-150;lo<=150;lo+=30)grid+='<line x1="'+X(lo)+'" y1="0" x2="'+X(lo)+'" y2="180" class="g"/>';for(let la=-60;la<=60;la+=30)grid+='<line x1="0" y1="'+Y(la)+'" x2="360" y2="'+Y(la)+'" class="g"/>';
+ function render(k){const p=P[k];
+  const dots=P.map((q,j)=>'<circle cx="'+X(q.lon)+'" cy="'+Y(q.lat)+'" r="'+(j===k?4.5:2.6)+'" class="'+(j===k?'cur':'d')+'"/>').join('');
+  w.innerHTML='<div class="vll-map"><svg viewBox="0 0 360 180" role="img" aria-label="World grid with the equator, the prime meridian and city points">'+grid+'<line x1="0" y1="90" x2="360" y2="90" class="eq"/><line x1="180" y1="0" x2="180" y2="180" class="pm"/><line x1="0" y1="'+Y(p.lat)+'" x2="'+X(p.lon)+'" y2="'+Y(p.lat)+'" class="lat"/><line x1="'+X(p.lon)+'" y1="180" x2="'+X(p.lon)+'" y2="'+Y(p.lat)+'" class="lon"/>'+dots+'<text x="4" y="86" class="t">Equator 0°</text><text x="183" y="10" class="t">Prime meridian 0°</text><text x="176" y="176" class="t">S</text><text x="176" y="20" class="t">N</text></svg></div><div class="vll-side"><b class="vll-name">'+esc(p.name)+'</b><div class="vll-v lat"><i>latitude</i>'+p.lat.toFixed(4)+'° <small>'+(p.lat>=0?'North of the equator (+)':'South of the equator (−)')+'</small></div><div class="vll-v lon"><i>longitude</i>'+p.lon.toFixed(4)+'° <small>'+(p.lon>=0?'East of Greenwich (+)':'West of Greenwich (−)')+'</small></div><div class="vz-console">location.latitude  = '+p.lat+'\nlocation.longitude = '+p.lon+'</div><div class="vpd-acts">'+P.map((q,j)=>'<button type="button" class="vz-btn" data-k="'+j+'" aria-pressed="'+(j===k)+'">'+esc(q.short||q.name)+'</button>').join('')+'</div></div>';
+  $$('[data-k]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();ctl.go(+b.dataset.k)}))}
+ return{n:()=>P.length,note:'',draw(i){render(i)},cap:i=>P[i].cap||''};
+};
+/* Location app flow on a phone: idle → permission → loading → coordinates → address. */
+Viz.locflow=(c,o)=>{
+ const w=el('div','vlf');c.appendChild(w);const S=o.steps;
+ const scr={
+  idle:()=>'<button type="button" class="w-btn">📡 Get my location</button><div class="w-text vlf-k">Latitude: --<br>Longitude: --<br>Address: --</div>',
+  perm:()=>'<div class="vlf-dim"><div class="vlf-dlg"><b>Allow '+esc(o.app||'GPS Demo')+' to access this device’s location?</b><div class="vlf-pick"><span class="on">◉ Precise</span><span>○ Approximate</span></div><span class="vlf-opt">While using the app</span><span class="vlf-opt">Only this time</span><span class="vlf-opt">Don’t allow</span></div></div>',
+  load:()=>'<button type="button" class="w-btn" disabled style="opacity:.5">📡 Get my location</button><div class="vlf-spin" aria-hidden="true"></div><div class="w-text vlf-k" style="text-align:center">Getting your location…</div>',
+  coords:s=>'<button type="button" class="w-btn">📡 Get my location</button><div class="w-text vlf-k">Latitude: '+s.lat+'<br>Longitude: '+s.lon+'<br><small>± '+s.acc+' m</small><br>Address: …</div>',
+  addr:s=>'<button type="button" class="w-btn">📡 Get my location</button><div class="w-text vlf-k">Latitude: '+s.lat+'<br>Longitude: '+s.lon+'<br><small>± '+s.acc+' m</small><br>Address:<br><b>'+esc(s.addr)+'</b></div>'};
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];w.innerHTML='<div class="vlf-ph">'+phone(o.app||'GPS Demo',scr[s.screen](s))+'</div><div class="vlf-side"><div class="vlf-steps">'+S.map((x,j)=>'<span class="'+(j===i?'cur':j<i?'done':'')+'">'+(j+1)+'. '+esc(x.label)+'</span>').join('')+'</div><pre class="val-code vlf-code">'+(s.code||'').split('\n').map(l=>'<span class="ln">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre></div>'},
+  cap:i=>S[i].cap};
+};
+/* Cursor walker: the cursor arrow moves row by row through a query result while the matching Kotlin line lights up. */
+Viz.cursorwalk=(c,o)=>{
+ const R=o.rows,C=o.cols,L=o.code.split('\n'),at=o.at;
+ const S=[{k:'query',pos:-1,cap:'`rawQuery()` runs the SELECT. The cursor waits **before** the first row (position −1).'}];
+ R.forEach((r,i)=>{S.push({k:i?'next':'first',pos:i,ret:true,cap:(i||o.loop==='while'?'`moveToNext()`':'`moveToFirst()`')+' returns **true**: the cursor points at row '+i+'.'});S.push({k:'read',pos:i,read:i,cap:'Read the columns of the current row with `getInt` / `getString` (by column name).'})});
+ S.push({k:'next',pos:R.length,ret:false,cap:'`moveToNext()` returns **false**: no more rows, the loop ends.'});
+ S.push({k:'close',pos:R.length,closed:true,cap:'`close()` frees the cursor. Always close it (or use `.use { }`).'});
+ const w=el('div','vcw');c.appendChild(w);
+ return{n:()=>S.length,note:'logic',
+  draw(i){const s=S[i],out=[];for(let k=0;k<=i;k++)if(S[k].read!=null)out.push(o.line(R[S[k].read]));
+   const rows=R.map((r,j)=>'<tr class="'+(j===s.pos&&!s.closed?'cur':'')+(j<s.pos||s.closed?' seen':'')+'"><td class="vcw-ar">'+(j===s.pos&&!s.closed?'▶':'')+'</td>'+r.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join('');
+   const pre=s.pos===-1?'<tr class="cur"><td class="vcw-ar">▶</td><td colspan="'+C.length+'" class="vcw-edge">before first (−1)</td></tr>':'',post=s.pos===R.length&&!s.closed?'<tr class="cur"><td class="vcw-ar">▶</td><td colspan="'+C.length+'" class="vcw-edge">after last</td></tr>':'';
+   const hl=at[s.k];
+   w.innerHTML='<div class="vcw-l"><table class="vcw-t'+(s.closed?' closed':'')+'"><thead><tr><th></th>'+C.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+pre+rows+post+'</tbody></table>'+(s.ret!=null?'<div class="vcw-ret '+(s.ret?'ok':'no')+'">returns '+s.ret+'</div>':'')+'</div><div class="vcw-r"><pre class="val-code">'+L.map((l,k)=>'<span class="ln'+(k===hl||(Array.isArray(hl)&&hl.includes(k))?' vcw-hl':'')+'">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre><div class="vz-console">'+esc(out.join('\n')||' ')+'</div></div>'},
+  cap:i=>S[i].cap};
+};
+/* Filter builder: choose WHERE / LIKE / city / ORDER BY / LIMIT; see the SQL with ? placeholders, the args, and the rows that match. */
+Viz.sqlfilter=(c,o,ctl)=>{
+ const R=o.rows,C=o.cols,st={min:'',like:'',city:'',order:'',limit:''};
+ const opts={min:['','50','70','85'],like:['','A','S','H'],city:['','Okara','Lahore','Karachi'],order:['','marks DESC','name ASC'],limit:['','3']};
+ const lab={min:'marks ≥',like:'name starts with',city:'city =',order:'ORDER BY',limit:'LIMIT'};
+ const w=el('div','vsf');c.appendChild(w);
+ function run(){let r=R.slice();const where=[],args=[];
+  if(st.min){where.push('marks >= ?');args.push(st.min);r=r.filter(x=>x[4]>=+st.min)}
+  if(st.like){where.push('name LIKE ?');args.push(st.like+'%');r=r.filter(x=>x[1].toLowerCase().startsWith(st.like.toLowerCase()))}
+  if(st.city){where.push('city = ?');args.push(st.city);r=r.filter(x=>x[3]===st.city)}
+  if(st.order==='marks DESC')r.sort((a,b)=>b[4]-a[4]);else if(st.order==='name ASC')r.sort((a,b)=>a[1].localeCompare(b[1]));
+  if(st.limit)r=r.slice(0,+st.limit);
+  const sql='SELECT * FROM students'+(where.length?'\nWHERE '+where.join(' AND '):'')+(st.order?'\nORDER BY '+st.order:'')+(st.limit?'\nLIMIT '+st.limit:'');
+  return{r,sql,args}}
+ function render(){const q=run();
+  w.innerHTML='<div class="vsf-ctl">'+Object.keys(opts).map(k=>'<label><span>'+lab[k]+'</span><select data-k="'+k+'">'+opts[k].map(v=>'<option value="'+v+'"'+(st[k]===v?' selected':'')+'>'+(v||'—')+'</option>').join('')+'</select></label>').join('')+'</div><pre class="val-code vsf-sql">'+q.sql.split('\n').map(l=>'<span class="ln">'+hlLine(l,'sql')+'</span>').join('')+'</pre><div class="vsf-args">args = arrayOf('+q.args.map(a=>'"'+esc(a)+'"').join(', ')+')</div><table class="vsf-t"><thead><tr>'+C.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+(q.r.length?q.r.map(x=>'<tr>'+x.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+C.length+'" class="vsf-none">no rows match</td></tr>')+'</tbody></table><div class="vsf-n">'+q.r.length+' of '+R.length+' rows</div>';
+  $$('[data-k]',w).forEach(s=>s.addEventListener('change',()=>{ctl.pause();st[s.dataset.k]=s.value;render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){Object.assign(st,{min:'',like:'',city:'',order:'',limit:''},S[i].set);render()},cap:i=>S[i].cap};
+};
+/* SQL injection: the same login typed two ways — glued into the SQL string, or passed as ? arguments. */
+Viz.injection=(c,o,ctl)=>{
+ const U=o.users,st={u:'ali',p:'1234',safe:false};const w=el('div','vij');c.appendChild(w);
+ const norm=s=>s.replace(/\s+/g,' ').toLowerCase();
+ function evalQ(){
+  if(st.safe){const m=U.find(x=>x[0]===st.u&&x[1]===st.p);return{sql:"SELECT * FROM USERS WHERE USERNAME = ? AND PASSWORD = ?",args:'arrayOf("'+st.u+'", "'+st.p+'")',ok:!!m,who:m&&m[0],why:m?'Exactly one row matches.':'No row has this username AND this password.'}}
+  const sql="SELECT * FROM USERS WHERE USERNAME = '"+st.u+"' AND PASSWORD = '"+st.p+"'";
+  const inj=/' or '1'='1/.test(norm(st.p))||/' or '1'='1/.test(norm(st.u))||/'\s*--/.test(st.u);
+  if(inj)return{sql,args:'null',ok:true,who:U[0][0],why:'The typed quote ENDED the text and OR \'1\'=\'1\' is always true → every row matches. Logged in as the first user without the password!'};
+  if(/'/.test(st.u+st.p))return{sql,args:'null',ok:null,why:'A stray quote breaks the SQL → SQLiteException, the app crashes.'};
+  const m=U.find(x=>x[0]===st.u&&x[1]===st.p);return{sql,args:'null',ok:!!m,who:m&&m[0],why:m?'Exactly one row matches.':'No row matches.'}}
+ function render(){const q=evalQ();
+  w.innerHTML='<div class="vij-form"><label>Username<input data-f="u" value="'+esc(st.u)+'" autocomplete="off" spellcheck="false"></label><label>Password<input data-f="p" value="'+esc(st.p)+'" autocomplete="off" spellcheck="false"></label><div class="vpd-acts"><button type="button" class="vz-btn" data-m="0" aria-pressed="'+!st.safe+'">✗ Glued into the string</button><button type="button" class="vz-btn" data-m="1" aria-pressed="'+st.safe+'">✓ ? placeholders</button></div></div><pre class="val-code vij-sql">'+hlLine(q.sql,'sql')+'</pre><div class="vij-args">args = '+esc(q.args)+'</div><div class="vij-res '+(q.ok===null?'err':q.ok?(st.safe?'ok':'bad'):'no')+'"><b>'+(q.ok===null?'💥 Crash':q.ok?'🔓 Logged in as '+esc(q.who):'🔒 Login refused')+'</b><small>'+esc(q.why)+'</small></div>';
+  $$('[data-f]',w).forEach(i=>i.addEventListener('input',()=>{st[i.dataset.f]=i.value;const r=evalQ();const sq=$('.vij-sql',w);sq.innerHTML=hlLine(r.sql,'sql');$('.vij-args',w).textContent='args = '+r.args;const rs=$('.vij-res',w);rs.className='vij-res '+(r.ok===null?'err':r.ok?(st.safe?'ok':'bad'):'no');rs.innerHTML='<b>'+(r.ok===null?'💥 Crash':r.ok?'🔓 Logged in as '+esc(r.who):'🔒 Login refused')+'</b><small>'+esc(r.why)+'</small>'}));
+  $$('[data-m]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();st.safe=b.dataset.m==='1';render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'sim',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
+};
+/* Firebase JSON tree: apply setValue / push / removeValue step by step and highlight what changed. */
+const fbClone=o=>JSON.parse(JSON.stringify(o));
+const fbTree=(obj,path,hl,del)=>{if(obj===null||typeof obj!=='object')return '<span class="vjt-v">'+esc(JSON.stringify(obj))+'</span>';
+ return '<ul class="vjt-ul">'+Object.keys(obj).map(k=>{const p=path?path+'/'+k:k;const cls=(hl.has(p)?' hl':'')+(del.has(p)?' del':'');const v=obj[k];
+  return '<li class="vjt-li'+cls+'"><span class="vjt-k">'+esc(k)+'</span>'+(v!==null&&typeof v==='object'?fbTree(v,p,hl,del):': '+fbTree(v,p,hl,del))+'</li>'}).join('')+'</ul>'};
+const fbSet=(root,path,val)=>{const ks=path.split('/');let o=root;for(let i=0;i<ks.length-1;i++){if(typeof o[ks[i]]!=='object'||o[ks[i]]===null)o[ks[i]]={};o=o[ks[i]]}if(val===null)delete o[ks.at(-1)];else o[ks.at(-1)]=fbClone(val)};
+const fbGet=(root,path)=>path.split('/').reduce((o,k)=>o&&o[k],root);
+Viz.jsontree=(c,o)=>{
+ const w=el('div','vjt');c.appendChild(w);const S=o.script;
+ return{n:()=>S.length+1,note:'sim',
+  draw(i){let t=fbClone(o.tree||{});const hl=new Set(),del=new Set();
+   for(let k=0;k<i;k++){const s=S[k],last=k===i-1,path=s.op==='push'?s.path+'/'+s.key:s.path;
+    if(last&&s.op==='remove'){del.add(path);continue}
+    fbSet(t,path,s.op==='remove'?null:s.value);if(last){hl.add(path);const v=fbGet(t,path);if(v&&typeof v==='object')Object.keys(v).forEach(x=>hl.add(path+'/'+x))}}
+   const s=S[i-1];
+   w.innerHTML='<pre class="val-code vjt-code">'+(s?s.code:o.code0||'// the database at the start').split('\n').map(l=>'<span class="ln">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre><div class="vjt-box"><div class="vjt-h">🔥 Realtime Database (console → Data)</div>'+(Object.keys(t).length||del.size?fbTree(t,'',hl,del):'<div class="vjt-empty">null — the database is empty</div>')+'</div>'},
+  cap:i=>i?S[i-1].cap:(o.cap0||'The database is one JSON tree.')};
+};
+/* Real-time sync: phone A, the server, phone B. Each change on the server reaches every phone with a listener. */
+Viz.rtsync=(c,o)=>{
+ const w=el('div','vrs');c.appendChild(w);const S=o.script;
+ const line=s=>'👨‍🎓 '+s.name+' | '+s.age+' yrs | '+s.city;
+ return{n:()=>S.length,note:'sim',
+  draw(i){let srv={},bOnline=true,bView={},calls={A:0,B:0},flash='',lastLog='';
+   const fire=(who)=>{calls[who]++};
+   for(let k=0;k<=i;k++){const s=S[k];flash='';
+    if(s.a==='start'){fire('A');fire('B')}
+    else if(s.a==='add'){srv[s.key]=fbClone(s.s);flash=s.by;fire('A');if(bOnline){fire('B');bView=fbClone(srv)}}
+    else if(s.a==='edit'){srv[s.key][s.field]=s.value;flash='console';fire('A');if(bOnline){fire('B');bView=fbClone(srv)}}
+    else if(s.a==='remove'){delete srv[s.key];flash='console';fire('A');if(bOnline){fire('B');bView=fbClone(srv)}}
+    else if(s.a==='offline'){bOnline=false}
+    else if(s.a==='online'){bOnline=true;fire('B');bView=fbClone(srv)}
+    if(bOnline)bView=fbClone(srv)}
+   const list=v=>{const ks=Object.keys(v);return ks.length?ks.map(k=>'<div class="w-text vrs-row">'+esc(line(v[k]))+'</div>').join(''):'<div class="w-text" style="color:#64748b">No Records Found</div>'};
+   w.innerHTML='<div class="vrs-col">'+phone('Phone A',list(srv))+'<small class="vrs-n">onDataChange × '+calls.A+'</small></div><div class="vrs-mid"><div class="vrs-srv'+(flash?' flash':'')+'"><b>🔥 Students</b>'+(Object.keys(srv).length?fbTree(srv,'',new Set(),new Set()):'<div class="vjt-empty">null</div>')+'</div><div class="vrs-arrows">⇄</div></div><div class="vrs-col'+(bOnline?'':' off')+'">'+phone('Phone B'+(bOnline?'':' · offline ✈️'),list(bView))+'<small class="vrs-n">onDataChange × '+calls.B+'</small></div>'},
+  cap:i=>S[i].cap};
+};
+/* Firebase Authentication flow: the phone screen and the console's Users tab, step by step. */
+Viz.authflow=(c,o)=>{
+ const w=el('div','vaf');c.appendChild(w);const S=o.script;
+ const form=s=>s.screen==='main'?'<div class="w-text">Welcome, '+esc(s.email)+'</div><button type="button" class="w-btn">Logout</button>':'<input class="w-edit" readonly value="'+esc(s.email||'')+'" placeholder="Email" aria-label="Email"><input class="w-edit" readonly value="'+('•'.repeat((s.pass||'').length))+'" placeholder="Password" aria-label="Password">'+(s.screen==='register'?'<input class="w-edit" readonly value="'+('•'.repeat((s.confirm||'').length))+'" placeholder="Confirm Password" aria-label="Confirm password"><button type="button" class="w-btn">CREATE ACCOUNT</button>':'<button type="button" class="w-btn">LOGIN</button>');
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];const users=[];for(let k=0;k<=i;k++)if(S[k].adds)users.push(S[k].adds);
+   w.innerHTML='<div class="vaf-ph">'+phone(s.screen==='register'?'Register':s.screen==='login'?'Login':'MainActivity',form(s)+(s.toast?'<div class="vaf-toast">'+esc(s.toast)+'</div>':''))+'</div><div class="vaf-side"><div class="vaf-h">Firebase console → Authentication → Users</div><table class="vsf-t"><thead><tr><th>Identifier</th><th>User UID</th></tr></thead><tbody>'+(users.length?users.map((u,k)=>'<tr class="'+(S[i].adds===u?'vaf-new':'')+'"><td>'+esc(u.email)+'</td><td class="vaf-uid">'+esc(u.uid)+'</td></tr>').join(''):'<tr><td colspan="2" class="vsf-none">no users yet</td></tr>')+'</tbody></table>'+(s.code?'<pre class="val-code vaf-code">'+s.code.split('\n').map(l=>'<span class="ln">'+hlLine(l,'kotlin')+'</span>').join('')+'</pre>':'')+'</div>'},
+  cap:i=>S[i].cap};
+};
+/* Security Rules checker: pick the rules, who is asking and what they ask for. */
+Viz.rulescheck=(c,o,ctl)=>{
+ const st={rules:'test',signed:false,op:'write',path:'Students'};const w=el('div','vrc');c.appendChild(w);
+ const R={test:{label:'Test mode',json:'{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}',note:'Open to everyone until the trial period ends — then everything is denied.'},
+  auth:{label:'Signed-in users',json:'{\n  "rules": {\n    ".read": "auth != null",\n    ".write": "auth != null"\n  }\n}',note:'Any signed-in user can read and write everything.'},
+  owner:{label:'Owner only',json:'{\n  "rules": {\n    "users": {\n      "$uid": {\n        ".read": "auth !== null && auth.uid === $uid",\n        ".write": "auth !== null && auth.uid === $uid"\n      }\n    }\n  }\n}',note:'Each user can only reach users/<their own uid>. Paths with no rule are denied.'},
+  locked:{label:'Locked mode',json:'{\n  "rules": {\n    ".read": false,\n    ".write": false\n  }\n}',note:'Apps are denied everything (your own servers can still use the Admin SDK).'}};
+ const PATHS={Students:'Students','users/uid_ali':'users/uid_ali  (Ali’s own)','users/uid_sara':'users/uid_sara  (Sara’s)'};
+ function decide(){const r=st.rules;if(r==='test')return[true,'".'+st.op+'": true → allowed for anyone, even without signing in.'];
+  if(r==='locked')return[false,'".'+st.op+'": false → denied.'];
+  if(r==='auth')return st.signed?[true,'auth != null and Ali is signed in → allowed.']:[false,'Not signed in, so auth is null → Permission denied.'];
+  if(!st.path.startsWith('users/'))return[false,'No rule covers "'+st.path+'" → denied by default.'];
+  if(!st.signed)return[false,'Not signed in → auth is null → denied.'];
+  return st.path==='users/uid_ali'?[true,'$uid = uid_ali and auth.uid = uid_ali → allowed.']:[false,'$uid = uid_sara but auth.uid = uid_ali → denied.']}
+ const sel=(k,opts)=>'<select data-k="'+k+'">'+Object.entries(opts).map(([v,l])=>'<option value="'+v+'"'+(String(st[k])===v?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select>';
+ function render(){const [ok,why]=decide();
+  w.innerHTML='<div class="vsf-ctl"><label><span>Rules</span>'+sel('rules',Object.fromEntries(Object.entries(R).map(([k,v])=>[k,v.label])))+'</label><label><span>Who asks</span>'+sel('signed',{false:'Not signed in',true:'Ali (signed in, uid_ali)'})+'</label><label><span>Operation</span>'+sel('op',{read:'read',write:'write'})+'</label><label><span>Path</span>'+sel('path',PATHS)+'</label></div><div class="vrc-grid"><pre class="val-code vrc-json">'+R[st.rules].json.split('\n').map(l=>'<span class="ln">'+hlLine(l,'json')+'</span>').join('')+'</pre><div class="vij-res '+(ok?'ok':'bad')+'"><b>'+(ok?'✅ Allowed':'⛔ Permission denied')+'</b><small>'+esc(why)+'</small><small>'+esc(R[st.rules].note)+'</small></div></div>';
+  $$('[data-k]',w).forEach(s=>s.addEventListener('change',()=>{ctl.pause();st[s.dataset.k]=s.dataset.k==='signed'?s.value==='true':s.value;render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
+};
+/* Round trip: phone → PHP → MySQL → PHP → phone, one hop per step, with the real payload of each hop. */
+Viz.roundtrip=(c,o)=>{
+ const N=[['📱','Android app'],['🐘','PHP on Apache'],['🗄️','MySQL']];const w=el('div','vrt');c.appendChild(w);const S=o.script;
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];const a=Math.min(s.from,s.to),b=Math.max(s.from,s.to);
+   w.innerHTML='<div class="vrt-row">'+N.map((n,k)=>'<div class="vrt-node'+(k===s.from||k===s.to?' on':'')+'"><span>'+n[0]+'</span><b>'+n[1]+'</b>'+(k===0?'<small class="vrt-th '+(s.thread==='bg'?'bg':'ui')+'">'+(s.thread==='bg'?'background thread':'UI thread')+'</small>':'')+'</div>'+(k<2?'<div class="vrt-ar'+(k>=a&&k<b?' hot':'')+(s.to<s.from?' back':'')+'"><i></i></div>':'')).join('')+'</div><div class="vrt-pk"><div class="vrt-lab">'+esc(s.label)+'</div><pre class="val-code">'+s.body.split('\n').map(l=>'<span class="ln">'+hlLine(l,s.lang||'text')+'</span>').join('')+'</pre></div>'},
+  cap:i=>S[i].cap};
+};
+/* Table → JSON: json_encode one row per step; switch to see mysqli's default (numbers as text). */
+Viz.rowsjson=(c,o,ctl)=>{
+ const w=el('div','vrj');c.appendChild(w);let asText=true;
+ function render(k){const rows=o.rows.slice(0,k);const cell=v=>typeof v==='number'?(asText?'"'+v+'"':String(v)):JSON.stringify(v);
+  const json=rows.length?'[\n'+rows.map(r=>'  {'+o.cols.map((c2,j)=>'"'+c2+'":'+cell(r[j])).join(',')+'}').join(',\n')+'\n]':'[]';
+  w.innerHTML='<div class="vrj-l"><div class="vrj-h">MySQL table: students</div><table class="vsf-t"><thead><tr>'+o.cols.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+o.rows.map((r,j)=>'<tr class="'+(j<k?'vrj-done':'')+(j===k-1?' vrj-new':'')+'">'+r.map(v=>'<td>'+esc(String(v))+'</td>').join('')+'</tr>').join('')+'</tbody></table><div class="vpd-acts"><button type="button" class="vz-btn" data-t="1" aria-pressed="'+asText+'">mysqli default: numbers as "text"</button><button type="button" class="vz-btn" data-t="0" aria-pressed="'+!asText+'">numbers as numbers</button></div></div><div class="vrj-r"><div class="vrj-h">echo json_encode($students);</div><pre class="val-code">'+json.split('\n').map(l=>'<span class="ln">'+hlLine(l,'json')+'</span>').join('')+'</pre></div>';
+  $$('[data-t]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();asText=b.dataset.t==='1';render(k)}))}
+ return{n:()=>o.rows.length+1,note:'logic',draw(i){render(i)},cap:i=>i===0?'Start: an empty PHP array → json_encode gives [].':i===o.rows.length?'All rows encoded: one JSON object per row, inside one array. The app reads it with JSONArray.':'Row '+i+' becomes one {…} object.'};
+};
+/* Thread lab: where the slow network call runs — main thread (crash), AsyncTask, or a coroutine. */
+Viz.threadlab=(c,o)=>{
+ const w=el('div','vtl2');c.appendChild(w);const S=o.script;
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];const lane=(name,blocks)=>'<div class="vtl2-lane"><b>'+name+'</b><div class="vtl2-track">'+blocks.map(x=>'<span class="vtl2-b '+x[2]+'" style="left:'+x[0]+'%;width:'+x[1]+'%">'+esc(x[3])+'</span>').join('')+'</div></div>';
+   w.innerHTML='<div class="vtl2-mode">'+esc(s.mode)+'</div>'+lane('UI (main) thread',s.ui||[])+lane('Background thread',s.bg||[])+'<div class="vij-res '+(s.ok?'ok':'bad')+'"><b>'+esc(s.result)+'</b>'+(s.why?'<small>'+esc(s.why)+'</small>':'')+'</div>'},
+  cap:i=>S[i].cap};
+};
+/* XAMPP control panel: start Apache and MySQL and see which URLs work. */
+Viz.xampp=(c,o,ctl)=>{
+ const st={apache:false,mysql:false};const w=el('div','vxp');c.appendChild(w);
+ const U=[['http://localhost/phpmyadmin','apache','mysql'],['http://localhost/school_app/fetch.php','apache','mysql'],['http://10.0.2.2/school_app/fetch.php (from the emulator)','apache','mysql']];
+ function render(){const svc=(k,n,d)=>'<div class="vxp-svc"><span class="vxp-dot '+(st[k]?'on':'')+'"></span><div><b>'+n+'</b><small>'+(st[k]?'Running':'Stopped')+' — '+d+'</small></div><button type="button" class="vz-btn" data-s="'+k+'">'+(st[k]?'Stop':'Start')+'</button></div>';
+  w.innerHTML='<div class="vxp-panel"><div class="vxp-h">XAMPP Control Panel</div>'+svc('apache','Apache','web server, runs the .php files')+svc('mysql','MySQL','database (MariaDB in XAMPP)')+'</div><div class="vxp-urls">'+U.map(u=>{const ok=st.apache&&st.mysql,half=st.apache&&!st.mysql;return '<div class="vxp-u '+(ok?'ok':'bad')+'"><code>'+esc(u[0])+'</code><small>'+(ok?'✅ works':half?'⚠️ page loads, but PHP cannot reach the database':'❌ connection refused (Apache is off)')+'</small></div>'}).join('')+'</div>';
+  $$('[data-s]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();st[b.dataset.s]=!st[b.dataset.s];render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'sim',draw(i){Object.assign(st,S[i].set);render()},cap:i=>S[i].cap};
+};
+/* Audio focus: a music app on a phone reacts to a call, a notification and a second music app. */
+Viz.focuslab=(c,o,ctl)=>{
+ const w=el('div','vfo');c.appendChild(w);let st;
+ const reset=()=>{st={playing:true,vol:70,duck:false,holder:'Music app',log:['AUDIOFOCUS_GAIN → music app plays'],other:null}};
+ const A={
+  call(){st.holder='Phone call';st.playing=false;st.log.push('AUDIOFOCUS_LOSS_TRANSIENT → pause');st.other='📞 Incoming call'},
+  endcall(){st.holder='Music app';st.playing=true;st.other=null;st.log.push('AUDIOFOCUS_GAIN → resume')},
+  notify(){st.duck=true;st.other='🔔 Notification sound';st.log.push('…_CAN_DUCK → volume lowered (the system ducks automatically on Android 8+)')},
+  undock(){st.duck=false;st.other=null;st.log.push('notification over → full volume again')},
+  app2(){st.holder='Another music app';st.playing=false;st.other='🎵 Another music app';st.log.push('AUDIOFOCUS_LOSS → stop (Android 12+ fades the old app out)')}};
+ function render(){const v=st.duck?Math.round(st.vol*.3):st.vol;
+  w.innerHTML='<div class="vfo-ph">'+phone('Music app','<div class="w-text vfo-big">'+(st.playing?'▶ Playing':'⏸ Paused')+'</div><div class="vfo-vol"><span style="width:'+(st.playing?v:0)+'%"></span></div><div class="w-text" style="font-size:.8em">STREAM_MUSIC '+st.vol+'%'+(st.duck?' (ducked to '+v+'%)':'')+'</div>'+(st.other?'<div class="vfo-other">'+esc(st.other)+'</div>':''))+'</div><div class="vfo-side"><div class="vfo-h">Audio focus holder: <b>'+esc(st.holder)+'</b></div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="call">📞 Call</button><button type="button" class="vz-btn" data-x="endcall">✅ End call</button><button type="button" class="vz-btn" data-x="notify">🔔 Notification</button><button type="button" class="vz-btn" data-x="undock">↩ Notification over</button><button type="button" class="vz-btn" data-x="app2">🎵 Other music app</button></div><label class="vfo-sl">Volume <input type="range" min="0" max="100" value="'+st.vol+'" data-v></label><div class="vz-console">'+esc(st.log.slice(-4).join('\n'))+'</div></div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}));
+  const r=$('[data-v]',w);r.addEventListener('input',()=>{ctl.pause();st.vol=+r.value;render()})}
+ const S=o.script;
+ return{n:()=>S.length,note:'sim',draw(i){reset();for(let k=0;k<=i;k++)if(S[k].a)A[S[k].a]();render()},cap:i=>S[i].cap};
+};
+/* MediaPlayer state machine: press the method buttons; wrong state → IllegalStateException, as in the official state diagram. */
+Viz.mpstate=(c,o,ctl)=>{
+ const T={Idle:{setDataSource:'Initialized',reset:'Idle',release:'End'},Initialized:{prepare:'Prepared',reset:'Idle',release:'End'},
+  Prepared:{start:'Started',stop:'Stopped',reset:'Idle',release:'End'},Started:{start:'Started',pause:'Paused',stop:'Stopped',reset:'Idle',release:'End'},
+  Paused:{start:'Started',pause:'Paused',stop:'Stopped',reset:'Idle',release:'End'},Stopped:{prepare:'Prepared',stop:'Stopped',reset:'Idle',release:'End'},
+  Error:{reset:'Idle',release:'End'},End:{}};
+ const M=['setDataSource','prepare','start','pause','stop','reset','release'];const ORDER=['Idle','Initialized','Prepared','Started','Paused','Stopped','End'];
+ const w=el('div','vms');c.appendChild(w);let s='Idle',log=[];
+ const call=m=>{const n=T[s][m];if(n){log.push(m+'()  '+s+' → '+n);s=n}else{log.push(m+'() in '+s+' → '+(s==='End'?'IllegalStateException (already released)':'IllegalStateException')); if(s!=='End')s='Error'}};
+ function render(){w.innerHTML='<div class="vms-states">'+ORDER.concat(s==='Error'?['Error']:[]).map(x=>'<span class="vms-s'+(x===s?' on':'')+(x==='Error'?' err':'')+'">'+x+'</span>').join('')+'</div><div class="vpd-acts">'+M.map(m=>'<button type="button" class="vz-btn" data-m="'+m+'">'+m+'()</button>').join('')+'</div><div class="vz-console">'+esc(log.slice(-5).join('\n')||'new MediaPlayer() → Idle')+'</div>';
+  $$('[data-m]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();call(b.dataset.m);render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){s='Idle';log=[];(S[i].calls||[]).forEach(call);render()},cap:i=>S[i].cap};
+};
+/* Storage: private internal files, app-specific external files, and shared MediaStore — then uninstall. */
+Viz.storagelab=(c,o,ctl)=>{
+ const w=el('div','vsl');c.appendChild(w);let st;
+ const reset=()=>{st={internal:[],external:[],shared:['Recording 01.m4a (shared Music)'],gone:false}};
+ const A={int(){if(st.gone)return;st.internal.push('note'+(st.internal.length+1)+'.txt')},ext(){if(st.gone)return;st.external.push('REC_'+(st.external.length+1)+'.m4a')},uninstall(){st.internal=[];st.external=[];st.gone=true},reinstall(){st.gone=false}};
+ const box=(title,path,files,cls,note)=>'<div class="vsl-box '+cls+'"><b>'+title+'</b><code>'+esc(path)+'</code><div class="vsl-files">'+(files.length?files.map(f=>'<span>📄 '+esc(f)+'</span>').join(''):'<em>empty</em>')+'</div><small>'+note+'</small></div>';
+ function render(){w.innerHTML='<div class="vsl-grid">'+box('🔒 Internal (“ROM”)','/data/data/com.example.audioapp/files/',st.internal,'in','private · no permission · deleted on uninstall')+box('📦 App-specific external (“SD card”)','/Android/data/com.example.audioapp/files/recordings/',st.external,'ex','no permission · user can browse · deleted on uninstall')+box('🎵 Shared storage (MediaStore)','Music/',st.shared,'sh','for files the user keeps · stays after uninstall')+'</div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="int">💾 Save → internal</button><button type="button" class="vz-btn" data-x="ext">💾 Save → external</button><button type="button" class="vz-btn" data-x="'+(st.gone?'reinstall':'uninstall')+'">'+(st.gone?'📲 Install again':'🗑️ Uninstall app')+'</button></div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'sim',draw(i){reset();(S[i].a||[]).forEach(a=>A[a]());render()},cap:i=>S[i].cap};
+};
+/* A real voice recorder in the browser (getUserMedia + MediaRecorder), mirroring Android's flow: permission → record → file → play. */
+Viz.micrec=(c,o,ctl)=>{
+ const w=el('div','vmr');c.appendChild(w);let rec=null,chunks=[],stream=null,t0=0,timer=0,clips=[];
+ const ok=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+ w.innerHTML='<div class="vmr-row"><button type="button" class="vz-btn vmr-rec">⏺ Allow mic &amp; record</button><button type="button" class="vz-btn vmr-stop" disabled>⏹ Stop</button><span class="vmr-time">00:00</span></div><div class="vz-console vmr-st">'+(ok?'state: idle — the browser will ask for the microphone, like Android’s RECORD_AUDIO dialog':'This browser cannot record here. On Android, the same steps run in MediaRecorder.')+'</div><div class="vmr-list"></div>';
+ const bRec=$('.vmr-rec',w),bStop=$('.vmr-stop',w),tm=$('.vmr-time',w),stl=$('.vmr-st',w),list=$('.vmr-list',w);if(!ok)bRec.disabled=true;
+ const say=s=>stl.textContent=s;
+ function stopAll(){if(rec&&rec.state!=='inactive')rec.stop();clearInterval(timer);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}bRec.disabled=!ok;bStop.disabled=true}
+ bRec.addEventListener('click',async()=>{ctl.pause();try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e){say('permission denied or no microphone — like denying RECORD_AUDIO: the app must not record');return}
+  chunks=[];rec=new MediaRecorder(stream);rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  rec.onstop=()=>{if(!chunks.length){say('stopped too soon — no data (Android: stop() throws, delete the file)');return}const blob=new Blob(chunks,{type:rec.mimeType||'audio/webm'});const url=URL.createObjectURL(blob);clips.push(url);const n=clips.length;
+   const row=el('div','vmr-clip','<span>🎧 REC_'+n+' · '+Math.round(blob.size/1024)+' KB</span>');const au=document.createElement('audio');au.controls=true;au.src=url;row.appendChild(au);list.prepend(row);say('saved REC_'+n+' — tap ▶ to play it back (MediaPlayer on Android)')};
+  rec.start();t0=Date.now();timer=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);tm.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},250);bRec.disabled=true;bStop.disabled=false;say('state: recording… (MediaRecorder.start())')});
+ bStop.addEventListener('click',()=>{stopAll()});
+ return{n:()=>1,note:'',draw(){},cap:()=>o.cap||'Press record, speak, stop, then play your clip.',destroy(){stopAll();clips.forEach(u=>URL.revokeObjectURL(u))}};
+};
+/* ANR demo: the same slow job on the main thread (spinner freezes, taps ignored, ANR after 5 s) or on a worker thread (spinner keeps spinning). */
+Viz.anrdemo=(c,o)=>{
+ const w=el('div','van');c.appendChild(w);const S=o.script;
+ return{n:()=>S.length,note:'sim',
+  draw(i){const s=S[i];const frozen=s.where==='main'&&s.t>0&&s.t<(s.total||6);
+   w.innerHTML='<div class="van-ph">'+phone('Weather app','<div class="van-spin'+(frozen?' frozen':'')+(s.t>=(s.total||6)||!s.t?' idle':'')+'" aria-hidden="true"></div><div class="w-text" style="text-align:center">'+esc(s.screen)+'</div><button type="button" class="w-btn"'+(frozen?' style="opacity:.6"':'')+'>Refresh</button>'+(s.tap?'<div class="w-text van-tap">👆 tap '+(frozen?'ignored':'handled')+'</div>':'')+(s.anr?'<div class="van-anr"><b>Weather app isn’t responding</b><span>Close app</span><span>Wait</span></div>':''))+'</div><div class="van-side"><div class="van-lane"><b>Main (UI) thread</b><div class="vtl2-track">'+(s.main||[]).map(x=>'<span class="vtl2-b '+x[2]+'" style="left:'+x[0]+'%;width:'+x[1]+'%">'+esc(x[3])+'</span>').join('')+'</div></div><div class="van-lane"><b>Worker thread</b><div class="vtl2-track">'+(s.bg||[]).map(x=>'<span class="vtl2-b '+x[2]+'" style="left:'+x[0]+'%;width:'+x[1]+'%">'+esc(x[3])+'</span>').join('')+'</div></div><div class="vz-console">t = '+s.t+' s · '+esc(s.log)+'</div></div>'},
+  cap:i=>S[i].cap};
+};
+/* Thread life cycle: NEW → RUNNABLE → TERMINATED; start() vs run(); start() twice. */
+Viz.threadlife=(c,o,ctl)=>{
+ const w=el('div','vtz');c.appendChild(w);let st;const ST=['NEW','RUNNABLE','TERMINATED'];
+ const reset=()=>{st={s:'NEW',where:'',log:['val t = Thread(task)  → NEW']}};
+ const A={start(){if(st.s!=='NEW'){st.log.push('t.start() again → IllegalThreadStateException');st.err=true;return}st.s='RUNNABLE';st.where='worker';st.log.push('t.start() → a NEW thread runs run()')},
+  finish(){if(st.s==='RUNNABLE'){st.s='TERMINATED';st.log.push('run() ended → TERMINATED')}},
+  run(){st.where='main';st.log.push('t.run() → the code runs on MAIN; t is still '+st.s+' (no new thread)')}};
+ function render(){w.innerHTML='<div class="vms-states">'+ST.map(x=>'<span class="vms-s'+(x===st.s?' on':'')+'">'+x+'</span>').join('')+(st.err?'<span class="vms-s err on">IllegalThreadStateException</span>':'')+'</div><div class="van-lane"><b>Main thread</b><div class="vtl2-track">'+(st.where==='main'?'<span class="vtl2-b bad" style="left:10%;width:60%">task.run() — UI frozen</span>':'<span class="vtl2-b ui" style="left:0;width:100%">drawing, taps…</span>')+'</div></div><div class="van-lane"><b>Worker thread</b><div class="vtl2-track">'+(st.where==='worker'?'<span class="vtl2-b net" style="left:10%;width:'+(st.s==='TERMINATED'?60:40)+'%">task.run()'+(st.s==='TERMINATED'?' ✓':'')+'</span>':'')+'</div></div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="start">t.start()</button><button type="button" class="vz-btn" data-x="finish">work ends</button><button type="button" class="vz-btn" data-x="run">t.run() (wrong)</button></div><div class="vz-console">'+esc(st.log.slice(-4).join('\n'))+'</div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){reset();(S[i].a||[]).forEach(a=>A[a]());render()},cap:i=>S[i].cap};
+};
+/* More workers: 6 equal tasks, 1–4 worker threads; each tick a worker finishes one third of a task. */
+Viz.workers=(c,o,ctl)=>{
+ const N=o.tasks||6,L=o.len||3,w=el('div','vwk');c.appendChild(w);let k=1;
+ function render(t){const total=Math.ceil(N/k)*L,tt=Math.min(t,total);
+  const bars=Array.from({length:N},(_,j)=>{const round=Math.floor(j/k),startT=round*L,p=Math.max(0,Math.min(L,tt-startT))/L;return '<div class="vwk-row"><span>task '+(j+1)+'</span><div class="vwk-bar"><i style="width:'+(p*100)+'%;background:'+(p>=1?'#16a34a':'#22d3ee')+'"></i></div><small>'+(p>=1?'done':p>0?'worker '+(j%k+1):'waiting')+'</small></div>'}).join('');
+  w.innerHTML='<label class="vfo-sl">Worker threads: <b>'+k+'</b><input type="range" min="1" max="4" value="'+k+'" data-k></label>'+bars+'<div class="vz-console">tick '+tt+' of '+total+' · '+N+' tasks ÷ '+k+' worker'+(k>1?'s':'')+' = '+Math.ceil(N/k)+' round'+(Math.ceil(N/k)>1?'s':'')+' × '+L+' ticks = '+total+' ticks</div>';
+  const r=$('[data-k]',w);r.addEventListener('input',()=>{ctl.pause();k=+r.value;render(t)})}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){k=S[i].k;render(S[i].t)},cap:i=>S[i].cap};
+};
+/* Race condition: two threads do count++ (read, add, write) on the same counter. */
+Viz.racelab=(c,o,ctl)=>{
+ const w=el('div','vrc2');c.appendChild(w);let sync=false;
+ const UNSAFE=[['A','read count → 5',5,null],['B','read count → 5',5,null],['A','add 1 → 6',5,null],['B','add 1 → 6',5,null],['A','write 6',6,null],['B','write 6 (A’s +1 is lost!)',6,null]];
+ const SAFE=[['A','lock 🔒',5,'A'],['A','read 5 · add 1 · write 6',6,'A'],['A','unlock 🔓',6,null],['B','lock 🔒',6,'B'],['B','read 6 · add 1 · write 7',7,'B'],['B','unlock 🔓',7,null]];
+ function render(i){const P=sync?SAFE:UNSAFE,s=P[Math.min(i,P.length-1)];const shown=P.slice(0,i+1);
+  w.innerHTML='<div class="vrc2-top"><div class="vrc2-count"><small>shared count</small><b>'+s[2]+'</b><small>expected '+(i>=P.length-1?7:'…')+'</small></div><div class="vpd-acts"><button type="button" class="vz-btn" data-s="0" aria-pressed="'+!sync+'">count++ (no lock)</button><button type="button" class="vz-btn" data-s="1" aria-pressed="'+sync+'">synchronized / Atomic</button></div></div><div class="vrc2-cols"><div><b>Thread A</b>'+shown.filter(x=>x[0]==='A').map(x=>'<span>'+esc(x[1])+'</span>').join('')+'</div><div><b>Thread B</b>'+shown.filter(x=>x[0]==='B').map(x=>'<span>'+esc(x[1])+'</span>').join('')+'</div></div>'+(i>=P.length-1?'<div class="vij-res '+(s[2]===7?'ok':'bad')+'"><b>'+(s[2]===7?'✅ count = 7':'⛔ count = 6 — one increment lost')+'</b><small>'+(s[2]===7?'Only one thread at a time may do read-add-write.':'Both threads read 5 before either wrote: a race condition.')+'</small></div>':'');
+  $$('[data-s]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();sync=b.dataset.s==='1';render(ctl.i||0)}))}
+ return{n:()=>6,note:'logic',draw(i){render(i)},cap:i=>['Two threads both want to add 1 to count (5). count++ is really three steps: read, add, write.','The second thread reads before the first one has written…','Each adds 1 to the value it read.','…','First write: 6.','Second write: also 6 — one increment disappeared. Switch on synchronized/Atomic and replay.'][i]};
+};
+/* Service lab: an Activity and a Service. Start (started/foreground), bind/unbind, close the screen, stop — with the real callback rules. */
+Viz.svclab=(c,o,ctl)=>{
+ const w=el('div','vsv');c.appendChild(w);let st;
+ const reset=()=>{st={screen:true,alive:false,started:false,fg:false,clients:0,id:0,log:['(no service yet)']}};
+ const L=s=>st.log.push(s);
+ const create=()=>{if(!st.alive){st.alive=true;L('onCreate()')}};
+ const maybeDestroy=()=>{if(st.alive&&!st.started&&st.clients===0){st.alive=false;st.fg=false;L('onDestroy() — clean up')}};
+ const A={
+  start(){create();st.started=true;st.id++;L('onStartCommand(startId = '+st.id+')')},
+  fg(){create();st.started=true;st.id++;L('onStartCommand(startId = '+st.id+')');st.fg=true;L('startForeground(…) → notification shown')},
+  bind(){if(!st.screen)return;create();st.clients++;if(st.clients===1)L('onBind() → the Activity gets the binder');else L('another client bound')},
+  unbind(){if(st.clients===0)return;st.clients--;if(st.clients===0)L('onUnbind()');maybeDestroy()},
+  close(){if(!st.screen)return;st.screen=false;L('Activity closed (onStop/onDestroy)');if(st.clients){st.clients=0;L('Activity unbinds → onUnbind()');maybeDestroy()}},
+  open(){st.screen=true;L('Activity opened again')},
+  stop(){if(!st.alive)return;st.started=false;L('stopService() / stopSelf()');if(st.clients)L('still bound — the Service keeps running');maybeDestroy()}};
+ function render(){w.innerHTML='<div class="vsv-lanes"><div class="vsv-box '+(st.screen?'on':'')+'"><b>📱 Activity</b><small>'+(st.screen?'visible':'closed')+'</small></div><div class="vsv-box '+(st.alive?'on':'')+(st.fg?' fg':'')+'"><b>⚙️ Service</b><small>'+(st.alive?(st.started?'started':'')+(st.started&&st.clients?' + ':'')+(st.clients?'bound ('+st.clients+')':''):'not running')+'</small>'+(st.fg?'<span class="vsv-notif">🔔 Playing music…</span>':'')+'</div></div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="start">startService()</button><button type="button" class="vz-btn" data-x="fg">startForegroundService()</button><button type="button" class="vz-btn" data-x="bind">bindService()</button><button type="button" class="vz-btn" data-x="unbind">unbindService()</button><button type="button" class="vz-btn" data-x="'+(st.screen?'close':'open')+'">'+(st.screen?'⌂ Close Activity':'↩ Open Activity')+'</button><button type="button" class="vz-btn" data-x="stop">■ stopService()</button></div><div class="vz-console">'+esc(st.log.slice(-5).join('\n'))+'</div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){reset();(S[i].a||[]).forEach(a=>A[a]());render()},cap:i=>S[i].cap};
+};
+/* Broadcast lab: a screen registers a receiver for some actions; signals arrive; forgetting to unregister delivers to a stopped screen. */
+Viz.bcastlab=(c,o,ctl)=>{
+ const w=el('div','vbc');c.appendChild(w);let st;
+ const ACT={power:'ACTION_POWER_CONNECTED',low:'ACTION_BATTERY_LOW',boot:'ACTION_BOOT_COMPLETED',tz:'ACTION_TIMEZONE_CHANGED'};
+ const reset=()=>{st={reg:false,screen:true,log:['receiver not registered']}};
+ const A={register(){if(st.reg)return;st.reg=true;st.log.push('registerReceiver(filter: POWER_CONNECTED, POWER_DISCONNECTED)')},
+  unregister(){if(!st.reg){st.log.push('unregisterReceiver() when not registered → IllegalArgumentException');return}st.reg=false;st.log.push('unregisterReceiver()')},
+  stopScreen(){st.screen=false;st.log.push('Activity stopped')},startScreen(){st.screen=true;st.log.push('Activity visible again')},
+  power(){st.log.push('📢 '+ACT.power+' → '+(st.reg?(st.screen?'onReceive(): show “Charging”':'⚠️ onReceive() on a STOPPED screen (stale delivery)'):'no registered receiver — ignored'))},
+  low(){st.log.push('📢 '+ACT.low+' → not in this filter — ignored')},
+  boot(){st.log.push('📢 '+ACT.boot+' → goes to the manifest BootReceiver (not this one)')}};
+ function render(){w.innerHTML='<div class="vsv-lanes"><div class="vsv-box '+(st.screen?'on':'')+'"><b>📱 Charging screen</b><small>'+(st.screen?'visible':'stopped')+'</small></div><div class="vsv-box '+(st.reg?'on':'')+'"><b>📻 powerReceiver</b><small>'+(st.reg?'registered':'not registered')+'</small></div></div><div class="vpd-acts"><button type="button" class="vz-btn" data-x="register">registerReceiver</button><button type="button" class="vz-btn" data-x="unregister">unregisterReceiver</button><button type="button" class="vz-btn" data-x="'+(st.screen?'stopScreen':'startScreen')+'">'+(st.screen?'⌂ Activity stops':'↩ Activity starts')+'</button><button type="button" class="vz-btn" data-x="power">🔌 Power connected</button><button type="button" class="vz-btn" data-x="low">🪫 Battery low</button><button type="button" class="vz-btn" data-x="boot">⏻ Boot</button></div><div class="vz-console">'+esc(st.log.slice(-5).join('\n'))+'</div>';
+  $$('[data-x]',w).forEach(b=>b.addEventListener('click',()=>{ctl.pause();A[b.dataset.x]();render()}))}
+ const S=o.script;
+ return{n:()=>S.length,note:'logic',draw(i){reset();(S[i].a||[]).forEach(a=>A[a]());render()},cap:i=>S[i].cap};
+};
+
 /* ---------- presentation ---------- */
 const ICON={grid:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
  play:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></svg>',
@@ -401,7 +1054,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    ({prev:()=>this.go(this.i-1,-1),next:()=>this.go(this.i+1,1),overview:()=>this.toggleOverview(),notes:()=>this.toggleNotes(),full:()=>this.toggleFull(),theme:()=>this.toggleTheme(),watch:()=>this.toggleWatch(),close:()=>this.close(),presenter:()=>Presenter.openWindow()})[a]()});
   // swipe
   let sx=0,sy=0,ok=false;const st=$('.pz-stage',r);
-  st.addEventListener('touchstart',e=>{const t=e.touches[0];ok=!e.target.closest('.vz,.pz-code pre,input,button');sx=t.clientX;sy=t.clientY},{passive:true});
+  st.addEventListener('touchstart',e=>{const t=e.touches[0];ok=!e.target.closest('.vz,.pz-code pre,input,button,select,details');sx=t.clientX;sy=t.clientY},{passive:true});
   st.addEventListener('touchend',e=>{if(!ok)return;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.4)this.go(this.i+(dx<0?1:-1),dx<0?1:-1)},{passive:true});
   document.addEventListener('fullscreenchange',()=>$('[data-pa="full"]',r).setAttribute('aria-pressed',!!document.fullscreenElement));
   window.addEventListener('keydown',e=>this.key(e),true);
@@ -417,7 +1070,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
  buildDots(){const d=$('.pz-dots',this.root);d.innerHTML=this.slides.length<=48?this.slides.map((s,k)=>'<button type="button" class="pz-dot" data-k="'+k+'" aria-label="Go to slide '+(k+1)+': '+esc(plain(s.title))+'"></button>').join(''):'';$$('.pz-dot',d).forEach(b=>b.addEventListener('click',()=>this.go(+b.dataset.k,+b.dataset.k>this.i?1:-1)))},
  go(i,dir){
   if(!this.slides.length)return;i=clamp(i,0,this.slides.length-1);if(i===this.i&&dir!==0)return;
-  if(this.ctl){this.ctl.destroy();this.ctl=null}this.code=null;
+  if(this.ctl){this.ctl.destroy();this.ctl=null}this.code=null;Tip.hide();
   this.i=i;const s=this.slides[i],stage=$('.pz-stage',this.root);
   const node=this.render(s,i);node.classList.add(dir<0?'enter-prev':'enter-next');stage.innerHTML='';stage.appendChild(node);this.fit(node);node.scrollTop=0;
   $('.pz-progress span',this.root).style.width=((i+1)/this.slides.length*100)+'%';
@@ -451,7 +1104,12 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    if(k==='summary'){const q=this.score();if(q.total)copy.appendChild(el('p','pz-score','Quiz score for this lecture: <b>'+q.right+' / '+q.total+'</b>'));
     const done=typeof CourseApp!=='undefined'&&CourseApp.state.storage.completed[this.l];const b=el('button','pz-check',done?'✓ Lecture completed':'Mark lecture as complete');b.type='button';b.setAttribute('aria-pressed',!!done);
     b.addEventListener('click',()=>{if(typeof CourseApp!=='undefined'&&!CourseApp.state.storage.completed[this.l]){CourseApp.toggleComplete(this.l)}b.textContent='✓ Lecture completed';b.setAttribute('aria-pressed','true')});copy.appendChild(b)}
+   if(k==='summary'&&s.glossary)copy.appendChild(el('div','pz-gloss','<h3>Glossary <small>tap or hover a word</small></h3><div>'+s.glossary.map(t=>tipBtn(esc(t),esc(t))).join('')+'</div>'));
    n.appendChild(copy);return n}
+  if(k==='try'){n.classList.add('solo');copy.innerHTML=kick(s.tag||'Try it yourself')+'<h2>'+md(s.title)+'</h2>'+(s.text?'<p class="pz-text">'+md(s.text)+'</p>':'');
+   const g=el('div','pz-try');(s.items||[]).forEach((it,j)=>{const sec=el('section',null,'<h3><b>'+(j+1)+'</b>'+md(it.title)+'</h3><p>'+md(it.task)+'</p><details><summary>💡 Hint</summary><p>'+md(it.hint)+'</p></details><details class="ans"><summary>✅ Show answer</summary></details>');
+    const a=$('.ans',sec);a.appendChild(codeBlock(it.answer,it.lang||'kotlin','Try'+(j+1)+'.kt'));if(it.output)a.appendChild(el('div','pz-out',esc(it.output)));g.appendChild(sec)});
+   copy.appendChild(g);n.appendChild(copy);return n}
   if(k==='bloom'){n.classList.add('solo');copy.innerHTML=kick('Bloom’s Taxonomy')+'<h2>'+md(s.title)+'</h2>'+bloomHtml(s.bloom);n.appendChild(copy);return n}
   if(k==='quiz'){n.classList.add('solo');copy.innerHTML=kick(s.tag||'Quick check')+'<h2>'+md(s.q)+'</h2><div class="pz-quiz">'+s.o.map((o,j)=>'<button type="button" class="pz-opt" data-j="'+j+'"><b>'+'ABCD'[j]+'</b><span>'+md(o)+'</span></button>').join('')+'</div><p class="pz-feedback" aria-live="polite"></p>';
    const fb=$('.pz-feedback',copy),opts=$$('.pz-opt',copy),prevAns=Store.obj('quiz',this.l)[i];
@@ -475,7 +1133,7 @@ const P={l:0,i:0,slides:[],root:null,ctl:null,code:null,digits:'',open:false,
    const run=s.run||(s.lang==='xml'||/android|Activity|setContent|R\.id/.test(s.code)?'android':s.lang==='sql'?'sql':s.lang==='php'?'php':(!s.lang||s.lang==='kotlin')?'kotlin':'');
    const RUN={kotlin:'Try it: paste into <a href="https://play.kotlinlang.org" target="_blank" rel="noopener">Kotlin Playground</a> or a Kotlin file in Android Studio.',android:'Run it in Android Studio: put it in your project, then press ▶ Run on an emulator or phone. (Android code does not run in the browser.)',sql:'Try it in Android Studio → App Inspection → Database Inspector, or any SQLite tool.',php:'Run it with XAMPP: save in htdocs and open http://localhost/… in a browser.'};
    if(RUN[run])vis.appendChild(el('p','pz-run',RUN[run]))}
-  else if(s.viz){if(s.wide||['machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
+  else if(s.viz){if(s.wide||['timeline','tracer','range','conveyor','studio','attrlab','autocomplete','permlife','backstack','animlab','anrdemo','threadlife','focuslab','mpstate','storagelab','roundtrip','rowsjson','threadlab','xampp','jsontree','rtsync','authflow','rulescheck','cursorwalk','sqlfilter','injection','getviewlab','latlng','locflow','rotatelab','splashrace','prefsdemo','machine','threads','storage','intent','perm','notify','xmlphone','table'].includes(s.viz.type))n.classList.add('wide');this.ctl=mountViz(vis,s.viz)}
   else if(s.big){vis.innerHTML='<div style="font-size:clamp(5rem,14vw,12rem);text-align:center" aria-hidden="true">'+esc(s.big)+'</div>'}
   if(s.takeaway)copy.appendChild(el('div','pz-take',md(s.takeaway)));
   if(vis.childNodes.length)n.appendChild(vis);else n.classList.add('solo');

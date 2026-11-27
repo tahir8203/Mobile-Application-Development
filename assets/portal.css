@@ -402,3 +402,14 @@
 
 @media (prefers-reduced-motion:reduce){.portal *,.portal *:before,.portal *:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.mock-tv span{width:15ch}}
 @media print{.mobile-bottom,.app-back,.d-hero .mock{display:none!important}}
+/* Focus mode (lecture pages): hide the top bar, course menu and bottom tabs */
+body.focus-mode{--header-h:0px}
+body.focus-mode .topbar,body.focus-mode .course-sidebar,body.focus-mode .mobile-bottom{display:none!important}
+body.focus-mode .course-workspace{display:block;min-height:100vh}
+body.focus-mode .lecture-stage{padding-top:clamp(.75rem,2vw,1.5rem)}
+.lecture-toolbar>button.focus-btn[aria-pressed="true"]{background:var(--surface-2);border-color:var(--primary)}
+.focus-exit{position:fixed;bottom:.8rem;left:.8rem;z-index:95;display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:999px;padding:.45rem .8rem;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);opacity:.92;transition:opacity .2s}
+.focus-exit:hover,.focus-exit:focus-visible{opacity:1}
+.focus-exit[hidden]{display:none!important}
+.lecture-toolbar>.present-btn{background:var(--grad);color:#fff;border:0}
+@media print{.focus-exit,.focus-btn{display:none!important}}
