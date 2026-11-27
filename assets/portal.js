@@ -348,14 +348,14 @@ document.addEventListener('click',e=>{
 /* Focus mode: hide the top bar and the course menu while reading a lecture (button, H key). Saved per device. */
 const FOCUS_KEY='madFocusMode';
 let focusPref=false;try{focusPref=localStorage.getItem(FOCUS_KEY)==='1'}catch(e){}
-const focusExit=document.createElement('button');focusExit.type='button';focusExit.className='focus-exit';focusExit.innerHTML='<span aria-hidden="true">☰</span> Show menus';focusExit.title='Show the top bar and course menu (H)';focusExit.addEventListener('click',()=>setFocus(false));document.body.appendChild(focusExit);
+const focusExit=document.createElement('button');focusExit.type='button';focusExit.className='focus-exit';focusExit.innerHTML='✕ <span>Exit focus</span>';focusExit.title='Exit focus mode (H or Esc)';focusExit.setAttribute('aria-label','Exit focus mode');focusExit.addEventListener('click',()=>setFocus(false));document.body.appendChild(focusExit);
 function applyFocus(){const on=focusPref&&CourseApp.state.view==='course';document.body.classList.toggle('focus-mode',on);focusExit.hidden=!on;
  $$('.lecture-toolbar').forEach(tb=>{let b=$('.focus-btn',tb);if(!b){b=document.createElement('button');b.type='button';b.className='focus-btn';b.addEventListener('click',()=>setFocus(!focusPref));const bm=$('[data-action="bookmark"]',tb);if(bm)bm.after(b);else tb.appendChild(b)}
   b.setAttribute('aria-pressed',String(on));b.title=(on?'Show':'Hide')+' the top bar and course menu (H)';b.textContent=on?'⤡ Show menus':'⤢ Focus mode'})}
 function setFocus(on){focusPref=on;try{localStorage.setItem(FOCUS_KEY,on?'1':'0')}catch(e){}$('#course-sidebar')?.classList.remove('open');applyFocus()}
 const showForFocus=CourseApp.showView;CourseApp.showView=function(view){showForFocus.call(this,view);applyFocus()};
-document.addEventListener('keydown',e=>{if(e.key.toLowerCase()!=='h'||e.ctrlKey||e.metaKey||e.altKey||document.body.classList.contains('pz-open'))return;const t=document.activeElement?.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT'||document.querySelector('dialog[open]'))return;if(CourseApp.state.view==='course'){e.preventDefault();setFocus(!focusPref)}});
-const helpGrid=$('#help-dialog .shortcut-grid');if(helpGrid&&!/Focus mode/.test(helpGrid.textContent))helpGrid.insertAdjacentHTML('beforeend','<kbd>H</kbd><span>Focus mode: hide or show the top bar and course menu</span>');
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('focus-mode')&&!document.body.classList.contains('pz-open')&&!document.querySelector('dialog[open]')){setFocus(false);return}if(e.key.toLowerCase()!=='h'||e.ctrlKey||e.metaKey||e.altKey||document.body.classList.contains('pz-open'))return;const t=document.activeElement?.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT'||document.querySelector('dialog[open]'))return;if(CourseApp.state.view==='course'){e.preventDefault();setFocus(!focusPref)}});
+const helpGrid=$('#help-dialog .shortcut-grid');if(helpGrid&&!/Focus mode/.test(helpGrid.textContent))helpGrid.insertAdjacentHTML('beforeend','<kbd>H</kbd><span>Focus mode: hide or show all bars (Esc also exits)</span>');
 applyFocus();
 
 window.MADPortal={stats,store:S,haptic,confetti,inApp,render:()=>after(CourseApp.state.view)};
